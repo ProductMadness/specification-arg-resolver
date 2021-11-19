@@ -45,6 +45,9 @@ jobs:
           echo "ORG_GRADLE_PROJECT_artifactory_user=${{ steps.vault.outputs.username }}" >> $GITHUB_ENV
           echo "ORG_GRADLE_PROJECT_artifactory_password=${{ steps.vault.outputs.password }}" >> $GITHUB_ENV
 
+      - name: Update version
+        run: ./gradlew pullVersion -Partifactory
+
       - name: Set version env
         run: echo "RELEASE_VERSION=$(echo $(./gradlew printVersion -q))" >> $GITHUB_ENV
 
