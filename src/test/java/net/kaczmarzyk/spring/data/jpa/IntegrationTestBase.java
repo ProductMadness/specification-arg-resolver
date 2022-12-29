@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,8 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import net.kaczmarzyk.spring.data.jpa.web.WebRequestQueryContext;
@@ -33,9 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,59 +43,58 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author TP Diffenbach
  */
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = { Application.class })
+@ContextConfiguration(classes = {Application.class})
 @WebAppConfiguration
 @Transactional
 public abstract class IntegrationTestBase {
 
-	private static final Customer[] EMPTY_LIST = {};
+    private static final Customer[] EMPTY_LIST = {};
 
-	@Autowired
-	protected CustomerRepository customerRepo;
+    @Autowired
+    protected CustomerRepository customerRepo;
 
-	@PersistenceContext
-	protected EntityManager em;
+    @PersistenceContext
+    protected EntityManager em;
 
-	protected Converter defaultConverter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
+    protected Converter defaultConverter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
 
-	protected QueryContext queryCtx = new WebRequestQueryContext(nativeWebRequest().build());
+    protected QueryContext queryCtx = new WebRequestQueryContext(nativeWebRequest().build());
+    protected MockMvc mockMvc;
+    @Autowired
+    WebApplicationContext wac;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
-	@Autowired
-	WebApplicationContext wac;
+    @BeforeEach
+    public void setupMockMvc() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    }
 
-	protected MockMvc mockMvc;
+    /**
+     * Call findAll with the Specification, and assert its members match the expectedMembers
+     *
+     * @param spec            the Specification
+     * @param expectedMembers the expected members after the Specification has filtered.
+     */
+    protected void assertFilterMembers(Specification<Customer> spec, Customer... expectedMembers) {
+        assertThat(customerRepo.findAll(spec)).hasSize(expectedMembers.length).containsOnly(expectedMembers);
+    }
 
-	@Autowired
-	private PlatformTransactionManager transactionManager;
+    /**
+     * Call findAll with the Specification, and assert its returns the empty list.
+     *
+     * @param spec Specification
+     */
+    protected void assertFilterEmpty(Specification<Customer> spec) {
+        assertFilterMembers(spec, EMPTY_LIST);
+    }
 
-	@BeforeEach
-	public void setupMockMvc() {
-		mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-	}
-
-	/**
-	 * Call findAll with the Specification, and assert its members match the expectedMembers
-	 * @param spec the Specification
-	 * @param expectedMembers the expected members after the Specification has filtered.
-	 */
-	protected void assertFilterMembers(Specification<Customer> spec, Customer... expectedMembers) {
-		assertThat(customerRepo.findAll(spec)).hasSize(expectedMembers.length).containsOnly(expectedMembers);
-	}
-
-	/**
-	 * Call findAll with the Specification, and assert its returns the empty list.
-	 * @param spec Specification
-	 */
-	protected void assertFilterEmpty(Specification<Customer> spec) {
-		assertFilterMembers(spec, EMPTY_LIST);
-	}
-
-	protected void doInNewTransaction(Runnable callback) {
-		TransactionTemplate template = new TransactionTemplate(transactionManager);
-		template.setPropagationBehavior(TransactionTemplate.PROPAGATION_REQUIRES_NEW);
-		template.execute(tx -> {
-			callback.run();
-			return null;
-		});
-	}
+    protected void doInNewTransaction(Runnable callback) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionTemplate.PROPAGATION_REQUIRES_NEW);
+        template.execute(tx -> {
+            callback.run();
+            return null;
+        });
+    }
 }

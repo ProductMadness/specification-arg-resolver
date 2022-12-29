@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,8 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,8 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.List;
 
 /**
@@ -38,30 +38,27 @@ import java.util.List;
  * @author TP Diffenbach
  */
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = { ApplicationWithConfiguredConversionService.class })
+@ContextConfiguration(classes = {ApplicationWithConfiguredConversionService.class})
 @WebAppConfiguration
 @Transactional
 public abstract class IntegrationTestBaseWithConfiguredConversionService {
 
     @Autowired
     protected CustomerRepository customerRepo;
-    
+
     @PersistenceContext
     protected EntityManager em;
-	
+
     protected Converter defaultConverter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
-	
-	@Autowired
-	WebApplicationContext wac;
-	
-	protected MockMvc mockMvc;
-	
-	@Autowired
-	List<HandlerMethodArgumentResolver> argumentResolvers;
-	
-	@BeforeEach
-	public void setupMockMvc() {
-		mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-	}
- 
+    protected MockMvc mockMvc;
+    @Autowired
+    WebApplicationContext wac;
+    @Autowired
+    List<HandlerMethodArgumentResolver> argumentResolvers;
+
+    @BeforeEach
+    public void setupMockMvc() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    }
+
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,46 +25,46 @@ import static net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch.EMPTY
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class StringToLocalDateTimeConverterTest {
-	
-	Converter converterWithDefaultFormats = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null);
-	
-	@Test
-	public void convertsToLocalDateTimeUsingDefaultFormat() {
-		LocalDateTime localDateTime = converterWithDefaultFormats.convert("2020-06-19T16:50:49", LocalDateTime.class);
-		
-		assertThat(localDateTime)
-				.isEqualTo("2020-06-19T16:50:49");
-	}
-	
-	@Test
-	public void throwsValueRejectedExceptionForUnparseableLocalDateTime() {
-		assertThrows(
-				Converter.ValueRejectedException.class,
-				() -> converterWithDefaultFormats.convert("2020-06-19T16:50:49T", LocalDateTime.class),
-				"LocalDateTime format exception, expected format:yyyy-MM-dd'T'HH:mm:ss"
-		);
-	}
-	
-	@Test
-	public void convertsToLocalDateTimeUsingCustomFormat() {
-		Converter converterWithCustomFormat = Converter.withDateFormat("yyyy-MM-dd 'T' HH:mm:ss", EMPTY_RESULT, null);
-		LocalDateTime localDateTime = converterWithCustomFormat.convert("2020-06-19 T 16:56:49", LocalDateTime.class);
-		
-		assertThat(localDateTime)
-				.isEqualTo("2020-06-19T16:56:49");
-	}
-	
-	@Test
-	public void throwsValueRejectedExceptionForUnparseableLocalDateTimeAndCustomFormat() {
-		Converter converterWithCustomFormat = Converter.withDateFormat("yyyy-MM-dd 'T' HH:mm:ss", EMPTY_RESULT, null);
-		
-		assertThrows(
-				Converter.ValueRejectedException.class,
-				() -> converterWithCustomFormat.convert("2020-06-19T16:50:49", LocalDateTime.class),
-				"LocalDateTime format exception, expected format:yyyy-MM-dd 'T' HH:mm:ss"
-		);
-		
-	}
-	
-	
+
+    Converter converterWithDefaultFormats = Converter.withTypeMismatchBehaviour(EMPTY_RESULT, null);
+
+    @Test
+    public void convertsToLocalDateTimeUsingDefaultFormat() {
+        LocalDateTime localDateTime = converterWithDefaultFormats.convert("2020-06-19T16:50:49", LocalDateTime.class);
+
+        assertThat(localDateTime)
+                .isEqualTo("2020-06-19T16:50:49");
+    }
+
+    @Test
+    public void throwsValueRejectedExceptionForUnparseableLocalDateTime() {
+        assertThrows(
+                Converter.ValueRejectedException.class,
+                () -> converterWithDefaultFormats.convert("2020-06-19T16:50:49T", LocalDateTime.class),
+                "LocalDateTime format exception, expected format:yyyy-MM-dd'T'HH:mm:ss"
+        );
+    }
+
+    @Test
+    public void convertsToLocalDateTimeUsingCustomFormat() {
+        Converter converterWithCustomFormat = Converter.withDateFormat("yyyy-MM-dd 'T' HH:mm:ss", EMPTY_RESULT, null);
+        LocalDateTime localDateTime = converterWithCustomFormat.convert("2020-06-19 T 16:56:49", LocalDateTime.class);
+
+        assertThat(localDateTime)
+                .isEqualTo("2020-06-19T16:56:49");
+    }
+
+    @Test
+    public void throwsValueRejectedExceptionForUnparseableLocalDateTimeAndCustomFormat() {
+        Converter converterWithCustomFormat = Converter.withDateFormat("yyyy-MM-dd 'T' HH:mm:ss", EMPTY_RESULT, null);
+
+        assertThrows(
+                Converter.ValueRejectedException.class,
+                () -> converterWithCustomFormat.convert("2020-06-19T16:50:49", LocalDateTime.class),
+                "LocalDateTime format exception, expected format:yyyy-MM-dd 'T' HH:mm:ss"
+        );
+
+    }
+
+
 }

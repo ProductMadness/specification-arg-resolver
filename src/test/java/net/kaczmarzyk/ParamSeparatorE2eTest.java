@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -33,35 +33,35 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 public class ParamSeparatorE2eTest extends E2eTestBase {
 
-	@Controller
-	@RequestMapping("/param-separator")
-	public static class ParamSeparatorSpecController {
+    @Test
+    public void doesNoFilteringIfParameterUsingParamSeparatorIsMissing() throws Exception {
+        mockMvc.perform(get("/param-separator/firstNameIn")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
+                .andExpect(jsonPath("$[8]").doesNotExist());
+    }
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @Controller
+    @RequestMapping("/param-separator")
+    public static class ParamSeparatorSpecController {
 
-		@RequestMapping(value = "/firstNameIn")
-		@ResponseBody
-		public Object findCustomersByFirstNameUsingParamSeparator(
-				@Spec(path = "firstName", params = "firstNameIn", paramSeparator = ',', spec = In.class) Specification<Customer> spec) {
-			return customerRepo.findAll(spec);
-		}
-	}
+        @Autowired
+        CustomerRepository customerRepo;
 
-	@Test
-	public void doesNoFilteringIfParameterUsingParamSeparatorIsMissing() throws Exception {
-		mockMvc.perform(get("/param-separator/firstNameIn")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
-			.andExpect(jsonPath("$[8]").doesNotExist());
-	}
+        @RequestMapping(value = "/firstNameIn")
+        @ResponseBody
+        public Object findCustomersByFirstNameUsingParamSeparator(
+                @Spec(path = "firstName", params = "firstNameIn", paramSeparator = ',', spec = In.class) Specification<Customer> spec) {
+            return customerRepo.findAll(spec);
+        }
+    }
 }

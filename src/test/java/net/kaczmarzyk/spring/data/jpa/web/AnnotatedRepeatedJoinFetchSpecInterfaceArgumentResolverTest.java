@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,9 +27,12 @@ import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import static javax.persistence.criteria.JoinType.*;
+import static jakarta.persistence.criteria.JoinType.INNER;
+import static jakarta.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.RIGHT;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Test cases:
  * TC-1. interface with repeated @JoinFetch spec
@@ -40,123 +43,123 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class AnnotatedRepeatedJoinFetchSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	// TC-1. interface with repeated @JoinFetch spec
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders", joinType = LEFT)
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "badges", joinType = INNER)
-	private interface OrderedItemNameBadgeFilter<T> extends Specification<T> {
-	}
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-	// TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders2", joinType = LEFT)
-	@Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
-	private interface OrderedItemNameFilter<T> extends Specification<T> {
+    @Test // TC-1. interface with repeated @JoinFetch spec
+    public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
+        MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameBadgeFilter.class);
 
-	}
+        NativeWebRequest req = nativeWebRequest().build();
+        QueryContext queryCtx = new WebRequestQueryContext(req);
 
-	private interface SpecExtendingTwoInterfaces<T> extends
-			OrderedItemNameBadgeFilter<T>, OrderedItemNameFilter<T> {
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-	}
+        assertThat(innerSpecs(resolved))
+                .hasSize(2)
+                .containsExactlyInAnyOrder(
+                        new JoinFetch<>(queryCtx, new String[]{"orders"}, LEFT, true),
+                        new JoinFetch<>(queryCtx, new String[]{"badges"}, INNER, true)
+                );
+    }
 
-	// TC-3. interface extending two interfaces with repeated @JoinFetch
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders2", joinType = RIGHT, distinct = false)
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "badges2", joinType = RIGHT)
-	private interface OrderedItemNameBadgeFilter2<T> extends Specification<T> {
-	}
+    @Test // TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
+    public void createsSpecFromInterfaceExtendingTwoInterfaces() throws Exception {
+        MethodParameter param = methodParameter(
+                "getCustomersBySpecExtendingInterfaceWithRepeatedJoinFetchAndExtendingInterfaceWithSingleJoinFetch",
+                SpecExtendingTwoInterfaces.class
+        );
 
-	private interface SpecExtendingTwoInterfacesWithRepeatedJoinFetch<T> extends OrderedItemNameBadgeFilter<T>, OrderedItemNameBadgeFilter2<T> {
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Duff Beer")
+                .build();
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        QueryContext queryCtx = new WebRequestQueryContext(req);
 
-	static class TestController {
-		// TC-1. interface with repeated @JoinFetch spec
-		public void annotatedInterface(OrderedItemNameBadgeFilter<Customer> spec) {
-		}
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		// TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
-		public void getCustomersBySpecExtendingInterfaceWithRepeatedJoinFetchAndExtendingInterfaceWithSingleJoinFetch(SpecExtendingTwoInterfaces<Customer> spec) {
-		}
+        assertThat(innerSpecs(resolved))
+                .hasSize(3)
+                .containsExactlyInAnyOrder(
+                        new Conjunction<>(
+                                new JoinFetch<>(queryCtx, new String[]{"orders"}, LEFT, true),
+                                new JoinFetch<>(queryCtx, new String[]{"badges"}, INNER, true)
+                        ),
+                        new JoinFetch<>(queryCtx, new String[]{"orders2"}, LEFT, true),
+                        new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Duff Beer"}, defaultConverter))
+                );
+    }
 
-		// TC-3. interface extending two interfaces with repeated @JoinFetch
-		public void getCustomersBySpecExtendingTwoInterfacesWithRepeatedJoinFetch(SpecExtendingTwoInterfacesWithRepeatedJoinFetch<Customer> spec) {
+    @Test // TC-3. interface extending two interfaces with repeated @JoinFetch
+    public void createsSpecFromInterfaceExtendingTwoInterfacesWithRepeatedJoinFetch() throws Exception {
+        MethodParameter param = methodParameter(
+                "getCustomersBySpecExtendingTwoInterfacesWithRepeatedJoinFetch",
+                SpecExtendingTwoInterfacesWithRepeatedJoinFetch.class
+        );
 
-		}
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Duff Beer")
+                .build();
+        QueryContext queryCtx = new WebRequestQueryContext(req);
 
-	@Test // TC-1. interface with repeated @JoinFetch spec
-	public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
-		MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameBadgeFilter.class);
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		NativeWebRequest req = nativeWebRequest().build();
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+        assertThat(innerSpecs(resolved))
+                .hasSize(2)
+                .containsExactlyInAnyOrder(
+                        new Conjunction<>(
+                                new JoinFetch<>(queryCtx, new String[]{"orders"}, LEFT, true),
+                                new JoinFetch<>(queryCtx, new String[]{"badges"}, INNER, true)
+                        ),
+                        new Conjunction<>(
+                                new JoinFetch<>(queryCtx, new String[]{"orders2"}, RIGHT, false),
+                                new JoinFetch<>(queryCtx, new String[]{"badges2"}, RIGHT, true)
+                        )
+                );
+    }
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+    // TC-1. interface with repeated @JoinFetch spec
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders", joinType = LEFT)
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "badges", joinType = INNER)
+    private interface OrderedItemNameBadgeFilter<T> extends Specification<T> {
+    }
 
-		assertThat(innerSpecs(resolved))
-				.hasSize(2)
-				.containsExactlyInAnyOrder(
-						new JoinFetch<>(queryCtx, new String[]{ "orders" }, LEFT, true),
-						new JoinFetch<>(queryCtx, new String[]{ "badges" }, INNER, true)
-				);
-	}
+    // TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders2", joinType = LEFT)
+    @Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
+    private interface OrderedItemNameFilter<T> extends Specification<T> {
 
-	@Test // TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
-	public void createsSpecFromInterfaceExtendingTwoInterfaces() throws Exception {
-		MethodParameter param = methodParameter(
-				"getCustomersBySpecExtendingInterfaceWithRepeatedJoinFetchAndExtendingInterfaceWithSingleJoinFetch",
-				SpecExtendingTwoInterfaces.class
-		);
+    }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Duff Beer")
-				.build();
+    private interface SpecExtendingTwoInterfaces<T> extends
+            OrderedItemNameBadgeFilter<T>, OrderedItemNameFilter<T> {
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+    }
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+    // TC-3. interface extending two interfaces with repeated @JoinFetch
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "orders2", joinType = RIGHT, distinct = false)
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.JoinFetch(paths = "badges2", joinType = RIGHT)
+    private interface OrderedItemNameBadgeFilter2<T> extends Specification<T> {
+    }
 
-		assertThat(innerSpecs(resolved))
-				.hasSize(3)
-				.containsExactlyInAnyOrder(
-						new Conjunction<>(
-								new JoinFetch<>(queryCtx, new String[]{ "orders" }, LEFT, true),
-								new JoinFetch<>(queryCtx, new String[]{ "badges" }, INNER, true)
-						),
-						new JoinFetch<>(queryCtx, new String[]{ "orders2" }, LEFT, true),
-						new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{ "Duff Beer" }, defaultConverter))
-				);
-	}
+    private interface SpecExtendingTwoInterfacesWithRepeatedJoinFetch<T> extends OrderedItemNameBadgeFilter<T>, OrderedItemNameBadgeFilter2<T> {
+    }
 
-	@Test // TC-3. interface extending two interfaces with repeated @JoinFetch
-	public void createsSpecFromInterfaceExtendingTwoInterfacesWithRepeatedJoinFetch() throws Exception {
-		MethodParameter param = methodParameter(
-				"getCustomersBySpecExtendingTwoInterfacesWithRepeatedJoinFetch",
-				SpecExtendingTwoInterfacesWithRepeatedJoinFetch.class
-		);
+    static class TestController {
+        // TC-1. interface with repeated @JoinFetch spec
+        public void annotatedInterface(OrderedItemNameBadgeFilter<Customer> spec) {
+        }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Duff Beer")
-				.build();
-		QueryContext queryCtx = new WebRequestQueryContext(req);
+        // TC-2. interface extending interface with repeated @JoinFetch spec and extending interface with single @JoinFetch
+        public void getCustomersBySpecExtendingInterfaceWithRepeatedJoinFetchAndExtendingInterfaceWithSingleJoinFetch(SpecExtendingTwoInterfaces<Customer> spec) {
+        }
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+        // TC-3. interface extending two interfaces with repeated @JoinFetch
+        public void getCustomersBySpecExtendingTwoInterfacesWithRepeatedJoinFetch(SpecExtendingTwoInterfacesWithRepeatedJoinFetch<Customer> spec) {
 
-		assertThat(innerSpecs(resolved))
-				.hasSize(2)
-				.containsExactlyInAnyOrder(
-						new Conjunction<>(
-								new JoinFetch<>(queryCtx, new String[]{ "orders" }, LEFT, true),
-								new JoinFetch<>(queryCtx, new String[]{ "badges" }, INNER, true)
-						),
-						new Conjunction<>(
-								new JoinFetch<>(queryCtx, new String[]{ "orders2" }, RIGHT, false),
-								new JoinFetch<>(queryCtx, new String[]{ "badges2" }, RIGHT, true)
-						)
-				);
-	}
+        }
+    }
 }

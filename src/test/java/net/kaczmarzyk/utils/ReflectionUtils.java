@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +20,7 @@ import java.lang.reflect.Field;
 
 /**
  * <p>A set of utility methods which provide simplified way of using reflection API.</p>
- * 
+ *
  * <p>Intended to be used <strong>only</strong> in test code</p>
  */
 public final class ReflectionUtils {
@@ -30,7 +30,7 @@ public final class ReflectionUtils {
      */
     private ReflectionUtils() {
     }
-    
+
     public static void set(Object target, String fieldname, Object value) {
         try {
             Class<?> classToBeUsed = target.getClass();
@@ -51,7 +51,7 @@ public final class ReflectionUtils {
             throw new RuntimeException(e);
         }
     }
-    
+
     @SuppressWarnings("unchecked")
     public static <T> T get(Object target, String fieldname) {
         try {

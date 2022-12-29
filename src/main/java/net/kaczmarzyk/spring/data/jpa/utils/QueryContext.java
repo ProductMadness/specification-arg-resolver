@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,9 +15,10 @@
  */
 package net.kaczmarzyk.spring.data.jpa.utils;
 
-import javax.persistence.criteria.Fetch;
-import javax.persistence.criteria.Join;
-import javax.persistence.criteria.Root;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Root;
+
 import java.util.function.Function;
 
 /**
@@ -27,12 +28,12 @@ import java.util.function.Function;
  */
 public interface QueryContext {
 
-	Join<?, ?> getEvaluated(String key, Root<?> root);
-	
-	void putLazyVal(String key, Function<Root<?>, Join<?, ?>> value);
+    Join<?, ?> getEvaluated(String key, Root<?> root);
 
-	Fetch<?, ?> getEvaluatedJoinFetch(String key);
+    void putLazyVal(String key, Function<Root<?>, Join<?, ?>> value);
 
-	void putEvaluatedJoinFetch(String key, Fetch<?, ?> fetch);
+    Fetch<?, ?> getEvaluatedJoinFetch(String key);
+
+    void putEvaluatedJoinFetch(String key, Fetch<?, ?> fetch);
 
 }

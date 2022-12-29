@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -32,30 +32,30 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class NullTest extends IntegrationTestBase {
 
-	Customer bartSimpson;
-	Customer lisaSimpson;
+    Customer bartSimpson;
+    Customer lisaSimpson;
 
-	@BeforeEach
-	public void initData() {
-		bartSimpson = customer("Bart", "Simpson").nickName("El Barto").street("Evergreen Terrace").build(em);
-		lisaSimpson = customer("Lisa", "Simpson").registrationDate(2014, 03, 20).street("Evergreen Terrace").build(em);
-	}
+    @BeforeEach
+    public void initData() {
+        bartSimpson = customer("Bart", "Simpson").nickName("El Barto").street("Evergreen Terrace").build(em);
+        lisaSimpson = customer("Lisa", "Simpson").registrationDate(2014, 03, 20).street("Evergreen Terrace").build(em);
+    }
 
-	@Test
-	public void findsCustomersWithNullField() {
-		Null<Customer> spec = new Null<>(queryCtx, "nickName", new String[]{"true"}, defaultConverter);
+    @Test
+    public void findsCustomersWithNullField() {
+        Null<Customer> spec = new Null<>(queryCtx, "nickName", new String[]{"true"}, defaultConverter);
 
-		List<Customer> found = customerRepo.findAll(spec);
+        List<Customer> found = customerRepo.findAll(spec);
 
-		assertThat(found).hasSize(1).containsOnly(lisaSimpson);
-	}
+        assertThat(found).hasSize(1).containsOnly(lisaSimpson);
+    }
 
-	@Test
-	public void findsCustomersWithNotNullField() {
-		Null<Customer> spec = new Null<>(queryCtx, "nickName", new String[]{"false"}, defaultConverter);
+    @Test
+    public void findsCustomersWithNotNullField() {
+        Null<Customer> spec = new Null<>(queryCtx, "nickName", new String[]{"false"}, defaultConverter);
 
-		List<Customer> found = customerRepo.findAll(spec);
+        List<Customer> found = customerRepo.findAll(spec);
 
-		assertThat(found).hasSize(1).containsOnly(bartSimpson);
-	}
+        assertThat(found).hasSize(1).containsOnly(bartSimpson);
+    }
 }

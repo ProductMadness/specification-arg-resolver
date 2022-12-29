@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +17,6 @@ package net.kaczmarzyk;
 
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
-import net.kaczmarzyk.utils.TestLogAppender;
 import org.junit.jupiter.api.BeforeEach;
 
 import java.time.LocalDate;
@@ -55,7 +54,7 @@ public abstract class E2eTestBase extends IntegrationTestBase {
                 .orders("Duff Beer", "Donuts", "Pizza", "Tomacco")
                 .badges("Beef Eater", "Hard Drinker", "Tomacco Eater")
                 .birthDate(LocalDate.of(1970, 03, 21))
-                .lastOrderTime(LocalDateTime.of(2016, 8, 21, 14, 51,0))
+                .lastOrderTime(LocalDateTime.of(2016, 8, 21, 14, 51, 0))
                 .nextSpecialOffer(OffsetDateTime.of(2020, 6, 16, 16, 17, 0, 0, ofHours(9)))
                 .build(em);
         margeSimpson = customer("Marge", "Simpson").registrationDate(2014, 03, 20)
@@ -65,7 +64,7 @@ public abstract class E2eTestBase extends IntegrationTestBase {
                 .weight(50)
                 .occupation("Housewife")
                 .birthDate(LocalDate.of(1972, 7, 13))
-                .lastOrderTime(LocalDateTime.of(2017, 12, 20, 11, 13,0))
+                .lastOrderTime(LocalDateTime.of(2017, 12, 20, 11, 13, 0))
                 .nextSpecialOffer(OffsetDateTime.of(2020, 6, 16, 16, 17, 0, 0, ofHours(7)))
                 .build(em);
         bartSimpson = customer("Bart", "Simpson").nickName("El Barto")
@@ -75,7 +74,7 @@ public abstract class E2eTestBase extends IntegrationTestBase {
                 .orders("Tomacco")
                 .badges("Tomacco Eater")
                 .birthDate(LocalDate.of(1992, 2, 23))
-                .lastOrderTime(LocalDateTime.of(2017, 11, 21, 11, 13,01))
+                .lastOrderTime(LocalDateTime.of(2017, 11, 21, 11, 13, 01))
                 .nextSpecialOffer(OffsetDateTime.of(2020, 7, 16, 16, 17, 0, 0, ofHours(4)))
                 .build(em);
         lisaSimpson = customer("Lisa", "Simpson").registrationDate(2014, 03, 30)
@@ -83,7 +82,7 @@ public abstract class E2eTestBase extends IntegrationTestBase {
                 .street("Evergreen Terrace")
                 .weight(30)
                 .birthDate(LocalDate.of(1994, 11, 7))
-                .lastOrderTime(LocalDateTime.of(2017, 8, 22, 9, 18,0))
+                .lastOrderTime(LocalDateTime.of(2017, 8, 22, 9, 18, 0))
                 .nextSpecialOffer(OffsetDateTime.of(2020, 7, 16, 16, 17, 0, 0, ofHours(3)))
                 .build(em);
         maggieSimpson = customer("Maggie", "Simpson").registrationDate(2014, 03, 31)
@@ -119,11 +118,9 @@ public abstract class E2eTestBase extends IntegrationTestBase {
                 .orders("Bible")
                 .birthDate(LocalDate.of(1974, 5, 4))
                 .refCode(UUID.fromString("63F7714E-594A-44E1-B75B-9D76EA1F42DB"))
-                .lastOrderTime(LocalDateTime.of(2016, 10, 17, 18, 29,0))
+                .lastOrderTime(LocalDateTime.of(2016, 10, 17, 18, 29, 0))
                 .nextSpecialOffer(OffsetDateTime.of(2020, 7, 19, 16, 17, 0, 0, ofHours(4)))
                 .build(em);
-
-        TestLogAppender.clearInterceptedLogs();
     }
 
 

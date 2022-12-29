@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +26,9 @@ import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import static javax.persistence.criteria.JoinType.*;
+import static jakarta.persistence.criteria.JoinType.INNER;
+import static jakarta.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.RIGHT;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,152 +42,152 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class AnnotatedRepeatedJoinSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	// TC-1. interface with repeated @Join spec
-	@Join(path = "orders", alias = "o", type = LEFT)
-	@Join(path = "badges", alias = "b")
-	@And({
-			@Spec(path = "o.itemName", params = "itemName", spec = Equal.class),
-			@Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
-	})
-	private interface OrderedItemNameBadgeFilter<T> extends Specification<T> {
-	}
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-	// TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
-	@Join(path = "discounts", alias = "d", type = RIGHT)
-	@Spec(path = "d.discountType", params = "discountType", spec = Equal.class)
-	private interface SpecWithSingleJoin<T> extends Specification<T> {
-	}
+    @Test // TC-1. interface with repeated @Join spec
+    public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
+        MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameBadgeFilter.class);
 
-	private interface SpecExtendingTwoInterfaces<T> extends OrderedItemNameBadgeFilter<T>, SpecWithSingleJoin<T> {
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Duff Beer")
+                .withParameterValues("badgeType", "Hard Drinker")
+                .build();
 
-	// TC-3. interface extending two interfaces with repeated @Join
-	@Join(path = "orders2", alias = "o2", type = LEFT, distinct = false)
-	@Join(path = "badges2", alias = "b2", type = RIGHT)
-	@And({
-			@Spec(path = "o2.itemName2", params = "itemName2", spec = Equal.class),
-			@Spec(path = "b2.badgeType2", params = "badgeType2", spec = Equal.class)
-	})
-	private interface OrderedItemNameBadgeFilter2<T> extends Specification<T> {
-	}
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	private interface SpecExtendingTwoInterfacesWithRepeatedJoin<T> extends OrderedItemNameBadgeFilter<T>, OrderedItemNameBadgeFilter2<T> {
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-	}
+        assertThat(innerSpecs(resolved))
+                .hasSize(2)
+                .containsExactlyInAnyOrder(
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Duff Beer"}, defaultConverter)),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{"Hard Drinker"}, defaultConverter))
+                        ),
+                        new Conjunction<>(
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
+                        )
+                );
+    }
+
+    @Test // TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
+    public void createsSpecFromInterfaceExtendingInterfaceWithRepeatedJoinAnnotationAndExtendingInterfaceWithSingleJoinAnnotation() throws Exception {
+        MethodParameter param = methodParameter("specExtendingTwoInterfaces", SpecExtendingTwoInterfaces.class);
+
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Duff Beer")
+                .withParameterValues("badgeType", "Hard Drinker")
+                .withParameterValues("discountType", "Gold customer")
+                .build();
+
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+
+        assertThat(innerSpecs(resolved))
+                .hasSize(4)
+                .containsExactlyInAnyOrder(
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Duff Beer"}, defaultConverter)),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{"Hard Drinker"}, defaultConverter))
+                        ),
+                        new Conjunction<>(
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
+                        ),
+                        new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "discounts", "d", RIGHT, true),
+                        new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "d.discountType", new String[]{"Gold customer"}, defaultConverter))
+                );
+    }
+
+    @Test // TC-3. interface extending two interfaces with repeated @Join
+    public void createsSpecFromInterfaceExtendingTwoInterfacesWithRepeatedJoin() throws Exception {
+        MethodParameter param = methodParameter("specExtendingTwoInterfacesWithRepeatedJoin", SpecExtendingTwoInterfacesWithRepeatedJoin.class);
+
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Duff Beer")
+                .withParameterValues("badgeType", "Hard Drinker")
+                .withParameterValues("itemName2", "Duff Beer2")
+                .withParameterValues("badgeType2", "Hard Drinker2")
+                .build();
+
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+
+        assertThat(innerSpecs(resolved))
+                .hasSize(4)
+                .containsExactlyInAnyOrder(
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Duff Beer"}, defaultConverter)),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{"Hard Drinker"}, defaultConverter))
+                        ),
+                        new Conjunction<>(
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
+                        ),
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o2.itemName2", new String[]{"Duff Beer2"}, defaultConverter)),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b2.badgeType2", new String[]{"Hard Drinker2"}, defaultConverter))
+                        ),
+                        new Conjunction<>(
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders2", "o2", LEFT, false),
+                                new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges2", "b2", RIGHT, true)
+                        )
+                );
+    }
+
+    // TC-1. interface with repeated @Join spec
+    @Join(path = "orders", alias = "o", type = LEFT)
+    @Join(path = "badges", alias = "b")
+    @And({
+            @Spec(path = "o.itemName", params = "itemName", spec = Equal.class),
+            @Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
+    })
+    private interface OrderedItemNameBadgeFilter<T> extends Specification<T> {
+    }
 
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+    // TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
+    @Join(path = "discounts", alias = "d", type = RIGHT)
+    @Spec(path = "d.discountType", params = "discountType", spec = Equal.class)
+    private interface SpecWithSingleJoin<T> extends Specification<T> {
+    }
 
-	static class TestController {
-		// TC-1. interface with repeated @Join spec
-		public void annotatedInterface(OrderedItemNameBadgeFilter<Object> spec) {
-		}
+    private interface SpecExtendingTwoInterfaces<T> extends OrderedItemNameBadgeFilter<T>, SpecWithSingleJoin<T> {
+    }
 
-		// TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
-		public void specExtendingTwoInterfaces(SpecExtendingTwoInterfaces<Object> spec) {
-		}
+    // TC-3. interface extending two interfaces with repeated @Join
+    @Join(path = "orders2", alias = "o2", type = LEFT, distinct = false)
+    @Join(path = "badges2", alias = "b2", type = RIGHT)
+    @And({
+            @Spec(path = "o2.itemName2", params = "itemName2", spec = Equal.class),
+            @Spec(path = "b2.badgeType2", params = "badgeType2", spec = Equal.class)
+    })
+    private interface OrderedItemNameBadgeFilter2<T> extends Specification<T> {
+    }
 
-		// TC-3. interface extending two interfaces with repeated @Join
-		public void specExtendingTwoInterfacesWithRepeatedJoin(SpecExtendingTwoInterfacesWithRepeatedJoin<Object> spec) {
-		}
+    private interface SpecExtendingTwoInterfacesWithRepeatedJoin<T> extends OrderedItemNameBadgeFilter<T>, OrderedItemNameBadgeFilter2<T> {
 
-	}
+    }
 
-	@Test // TC-1. interface with repeated @Join spec
-	public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
-		MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameBadgeFilter.class);
+    static class TestController {
+        // TC-1. interface with repeated @Join spec
+        public void annotatedInterface(OrderedItemNameBadgeFilter<Object> spec) {
+        }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Duff Beer")
-				.withParameterValues("badgeType", "Hard Drinker")
-				.build();
+        // TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
+        public void specExtendingTwoInterfaces(SpecExtendingTwoInterfaces<Object> spec) {
+        }
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        // TC-3. interface extending two interfaces with repeated @Join
+        public void specExtendingTwoInterfacesWithRepeatedJoin(SpecExtendingTwoInterfacesWithRepeatedJoin<Object> spec) {
+        }
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
-
-		assertThat(innerSpecs(resolved))
-				.hasSize(2)
-				.containsExactlyInAnyOrder(
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{ "Duff Beer" }, defaultConverter)),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{ "Hard Drinker" }, defaultConverter))
-						),
-						new Conjunction<>(
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
-						)
-				);
-	}
-
-	@Test // TC-2. interface extending interface with repeated @Join spec and extending interface with single @Join
-	public void createsSpecFromInterfaceExtendingInterfaceWithRepeatedJoinAnnotationAndExtendingInterfaceWithSingleJoinAnnotation() throws Exception {
-		MethodParameter param = methodParameter("specExtendingTwoInterfaces", SpecExtendingTwoInterfaces.class);
-
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Duff Beer")
-				.withParameterValues("badgeType", "Hard Drinker")
-				.withParameterValues("discountType", "Gold customer")
-				.build();
-
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
-
-		assertThat(innerSpecs(resolved))
-				.hasSize(4)
-				.containsExactlyInAnyOrder(
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{ "Duff Beer" }, defaultConverter)),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{ "Hard Drinker" }, defaultConverter))
-						),
-						new Conjunction<>(
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
-						),
-						new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "discounts", "d", RIGHT, true),
-						new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "d.discountType", new String[]{ "Gold customer" }, defaultConverter))
-				);
-	}
-
-	@Test // TC-3. interface extending two interfaces with repeated @Join
-	public void createsSpecFromInterfaceExtendingTwoInterfacesWithRepeatedJoin() throws Exception {
-		MethodParameter param = methodParameter("specExtendingTwoInterfacesWithRepeatedJoin", SpecExtendingTwoInterfacesWithRepeatedJoin.class);
-
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Duff Beer")
-				.withParameterValues("badgeType", "Hard Drinker")
-				.withParameterValues("itemName2", "Duff Beer2")
-				.withParameterValues("badgeType2", "Hard Drinker2")
-				.build();
-
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
-
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
-
-		assertThat(innerSpecs(resolved))
-				.hasSize(4)
-				.containsExactlyInAnyOrder(
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{ "Duff Beer" }, defaultConverter)),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b.badgeType", new String[]{ "Hard Drinker" }, defaultConverter))
-						),
-						new Conjunction<>(
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", INNER, true)
-						),
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o2.itemName2", new String[]{ "Duff Beer2" }, defaultConverter)),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "b2.badgeType2", new String[]{ "Hard Drinker2" }, defaultConverter))
-						),
-						new Conjunction<>(
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders2", "o2", LEFT, false),
-								new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges2", "b2", RIGHT, true)
-						)
-				);
-	}
+    }
 
 }

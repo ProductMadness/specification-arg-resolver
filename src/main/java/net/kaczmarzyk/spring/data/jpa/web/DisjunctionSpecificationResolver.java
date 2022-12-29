@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,35 +30,35 @@ import java.util.List;
  */
 class DisjunctionSpecificationResolver implements SpecificationResolver<Disjunction> {
 
-	private SimpleSpecificationResolver specResolver;
-	private AndSpecificationResolver andResolver;
-	
-	public DisjunctionSpecificationResolver(SimpleSpecificationResolver simpleSpecificationResolver) {
-		this.specResolver = simpleSpecificationResolver;
-		this.andResolver = new AndSpecificationResolver(simpleSpecificationResolver);
-	}
-	
-	@Override
-	public Class<? extends Annotation> getSupportedSpecificationDefinition() {
-		return Disjunction.class;
-	}
+    private final SimpleSpecificationResolver specResolver;
+    private final AndSpecificationResolver andResolver;
 
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, Disjunction def) {
-		List<Specification<Object>> innerSpecs = new ArrayList<Specification<Object>>();
-		for (And innerAndDef : def.value()) {
-			Specification<Object> innerAnd = andResolver.buildSpecification(context, innerAndDef);
-			if (innerAnd != null) {
-				innerSpecs.add(innerAnd);
-			}
-		}
-		for (Spec innerDef : def.or()) {
-			Specification<Object> innerSpec = specResolver.buildSpecification(context, innerDef);
-			if (innerSpec != null) {
-				innerSpecs.add(innerSpec);
-			}
-		}
+    DisjunctionSpecificationResolver(SimpleSpecificationResolver simpleSpecificationResolver) {
+        this.specResolver = simpleSpecificationResolver;
+        this.andResolver = new AndSpecificationResolver(simpleSpecificationResolver);
+    }
 
-		return innerSpecs.isEmpty() ? null : new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(innerSpecs);
-	}
+    @Override
+    public Class<? extends Annotation> getSupportedSpecificationDefinition() {
+        return Disjunction.class;
+    }
+
+    public Specification<Object> buildSpecification(WebRequestProcessingContext context, Disjunction def) {
+        List<Specification<Object>> innerSpecs = new ArrayList<Specification<Object>>();
+        for (And innerAndDef : def.value()) {
+            Specification<Object> innerAnd = andResolver.buildSpecification(context, innerAndDef);
+            if (innerAnd != null) {
+                innerSpecs.add(innerAnd);
+            }
+        }
+        for (Spec innerDef : def.or()) {
+            Specification<Object> innerSpec = specResolver.buildSpecification(context, innerDef);
+            if (innerSpec != null) {
+                innerSpecs.add(innerSpec);
+            }
+        }
+
+        return innerSpecs.isEmpty() ? null : new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(innerSpecs);
+    }
 
 }

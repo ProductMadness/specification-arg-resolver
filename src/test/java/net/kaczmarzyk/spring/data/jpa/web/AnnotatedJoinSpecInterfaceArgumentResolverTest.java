@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,25 +15,27 @@
  */
 package net.kaczmarzyk.spring.data.jpa.web;
 
+import jakarta.persistence.criteria.JoinType;
 import net.kaczmarzyk.spring.data.jpa.Customer;
-import net.kaczmarzyk.spring.data.jpa.domain.*;
 import net.kaczmarzyk.spring.data.jpa.domain.Conjunction;
-import net.kaczmarzyk.spring.data.jpa.web.annotation.*;
+import net.kaczmarzyk.spring.data.jpa.domain.EmptyResultOnTypeMismatch;
+import net.kaczmarzyk.spring.data.jpa.domain.Equal;
+import net.kaczmarzyk.spring.data.jpa.domain.In;
+import net.kaczmarzyk.spring.data.jpa.domain.Like;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Join;
-import net.kaczmarzyk.utils.ReflectionUtils;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.web.context.request.NativeWebRequest;
 
-import javax.persistence.criteria.JoinType;
 import java.util.Collection;
 
-import static javax.persistence.criteria.JoinType.LEFT;
+import static jakarta.persistence.criteria.JoinType.LEFT;
 import static net.kaczmarzyk.spring.data.jpa.web.utils.NativeWebRequestBuilder.nativeWebRequest;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
 /**
  * Test cases:
@@ -44,101 +46,101 @@ import static org.mockito.Mockito.mock;
  */
 public class AnnotatedJoinSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	// TC-1. interface with @Join spec
-	@Join(path = "orders", alias = "o", type = LEFT)
-	@Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
-	private interface OrderedItemNameFilter<T> extends Specification<T> {
-	}
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-	@And(value = {
-			@Spec(path = "gender", params = "genderIn", spec = In.class),
-			@Spec(path = "lastName", params = "lastName", spec = In.class)
-	})
-	private interface LastNameGenderFilterExtendedByOrderedItemNameFilter extends OrderedItemNameFilter<Customer> {
-	}
+    @Test // TC-1. interface with @Join spec
+    public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
+        MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameFilter.class);
 
-	@Join(path = "badges", alias = "b")
-	@Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
-	private interface BadgeFilter extends Specification<Customer> {
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Item-123").build();
 
-	// TC-2. interface extending two interfaces with @Join spec
-	private interface SpecExtendedByTwoOtherJoinSpecsFilter extends LastNameGenderFilterExtendedByOrderedItemNameFilter, BadgeFilter {
-	}
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-	static class TestController {
-		// TC-1. interface with @Join spec
-		public void annotatedInterface(OrderedItemNameFilter spec) {
-		}
+        assertThat(resolved)
+                .isInstanceOf(OrderedItemNameFilter.class);
 
-		// TC-2. interface extending two interfaces with @Join spec
-		public void getCustomersBySpecExtendedByTwoOtherJoinSpecsFilterExtendedByParamSimpleSpec(
-				@Spec(params = "nickName", path = "nickName", spec = Like.class) SpecExtendedByTwoOtherJoinSpecsFilter spec) {
-		}
-	}
+        assertThat(innerSpecs(resolved))
+                .hasSize(2)
+                .containsExactlyInAnyOrder(
+                        new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
+                        new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Item-123"}, converter))
+                );
+    }
 
-	@Test // TC-1. interface with @Join spec
-	public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
-		MethodParameter param = methodParameter("annotatedInterface", OrderedItemNameFilter.class);
+    @Test // TC-2. interface extending two interfaces with @Join spec
+    public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithJoinFilterAndSimpleSpecParam() throws Exception {
+        MethodParameter param = methodParameter(
+                "getCustomersBySpecExtendedByTwoOtherJoinSpecsFilterExtendedByParamSimpleSpec",
+                SpecExtendedByTwoOtherJoinSpecsFilter.class
+        );
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Item-123").build();
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("itemName", "Pizza")
+                .withParameterValues("lastName", "Simpson")
+                .withParameterValues("genderIn", "MALE")
+                .withParameterValues("badgeType", "Beef Eater")
+                .withParameterValues("nickName", "Hom").build();
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(resolved)
-				.isInstanceOf(OrderedItemNameFilter.class);
+        assertThat(resolved)
+                .isInstanceOf(SpecExtendedByTwoOtherJoinSpecsFilter.class);
 
-		assertThat(innerSpecs(resolved))
-				.hasSize(2)
-				.containsExactlyInAnyOrder(
-						new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
-						new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "o.itemName", new String[]{"Item-123"}, converter))
-				);
-	}
+        Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
 
-	@Test // TC-2. interface extending two interfaces with @Join spec
-	public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithJoinFilterAndSimpleSpecParam() throws Exception {
-		MethodParameter param = methodParameter(
-				"getCustomersBySpecExtendedByTwoOtherJoinSpecsFilterExtendedByParamSimpleSpec",
-				SpecExtendedByTwoOtherJoinSpecsFilter.class
-		);
+        Assertions.assertThat(innerSpecs)
+                .hasSize(6)
+                .containsOnly(
+                        new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", JoinType.INNER, true),
+                        new EmptyResultOnTypeMismatch<>(equal(ctx, "b.badgeType", "Beef Eater")),
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(in(ctx, "gender", "MALE")),
+                                new EmptyResultOnTypeMismatch<>(in(ctx, "lastName", "Simpson"))
+                        ),
+                        new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
+                        new EmptyResultOnTypeMismatch<>(equal(ctx, "o.itemName", "Pizza")),
+                        new Like<>(ctx.queryContext(), "nickName", "Hom")
+                );
+    }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("itemName", "Pizza")
-				.withParameterValues("lastName", "Simpson")
-				.withParameterValues("genderIn", "MALE")
-				.withParameterValues("badgeType", "Beef Eater")
-				.withParameterValues("nickName", "Hom").build();
+    // TC-1. interface with @Join spec
+    @Join(path = "orders", alias = "o", type = LEFT)
+    @Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
+    private interface OrderedItemNameFilter<T> extends Specification<T> {
+    }
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+    @And(value = {
+            @Spec(path = "gender", params = "genderIn", spec = In.class),
+            @Spec(path = "lastName", params = "lastName", spec = In.class)
+    })
+    private interface LastNameGenderFilterExtendedByOrderedItemNameFilter extends OrderedItemNameFilter<Customer> {
+    }
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+    @Join(path = "badges", alias = "b")
+    @Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
+    private interface BadgeFilter extends Specification<Customer> {
+    }
 
-		assertThat(resolved)
-				.isInstanceOf(SpecExtendedByTwoOtherJoinSpecsFilter.class);
+    // TC-2. interface extending two interfaces with @Join spec
+    private interface SpecExtendedByTwoOtherJoinSpecsFilter extends LastNameGenderFilterExtendedByOrderedItemNameFilter, BadgeFilter {
+    }
 
-		Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
+    static class TestController {
+        // TC-1. interface with @Join spec
+        public void annotatedInterface(OrderedItemNameFilter spec) {
+        }
 
-		Assertions.assertThat(innerSpecs)
-				.hasSize(6)
-				.containsOnly(
-						new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "badges", "b", JoinType.INNER, true),
-						new EmptyResultOnTypeMismatch<>(equal(ctx, "b.badgeType", "Beef Eater")),
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(in(ctx, "gender", "MALE")),
-								new EmptyResultOnTypeMismatch<>(in(ctx, "lastName", "Simpson"))
-						),
-						new net.kaczmarzyk.spring.data.jpa.domain.Join<>(ctx.queryContext(), "orders", "o", LEFT, true),
-						new EmptyResultOnTypeMismatch<>(equal(ctx, "o.itemName", "Pizza")),
-						new Like<>(ctx.queryContext(), "nickName", "Hom")
-				);
-	}
+        // TC-2. interface extending two interfaces with @Join spec
+        public void getCustomersBySpecExtendedByTwoOtherJoinSpecsFilterExtendedByParamSimpleSpec(
+                @Spec(params = "nickName", path = "nickName", spec = Like.class) SpecExtendedByTwoOtherJoinSpecsFilter spec) {
+        }
+    }
 }

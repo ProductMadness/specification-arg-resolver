@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,10 +15,11 @@
  */
 package net.kaczmarzyk;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+import net.kaczmarzyk.spring.data.jpa.Customer;
+import net.kaczmarzyk.spring.data.jpa.CustomerRepository;
+import net.kaczmarzyk.spring.data.jpa.domain.Equal;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.domain.Specification;
@@ -27,120 +28,118 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import net.kaczmarzyk.spring.data.jpa.Customer;
-import net.kaczmarzyk.spring.data.jpa.CustomerRepository;
-import net.kaczmarzyk.spring.data.jpa.domain.Equal;
-import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
-import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * @author Tomasz Kaczmarzyk
  */
 public class PathVariableHandlingE2eTest extends E2eTestBase {
 
-	@Controller
-	public static class TestController {
+    @Test
+    public void findsByIdProvidedInPathVariable() throws Exception {
+        mockMvc.perform(get("/pathVar/customers/" + homerSimpson.getId())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @Test
+    public void findsByIdProvidedInPathVariableWithRegex() throws Exception {
+        mockMvc.perform(get("/pathVar/customers/" + homerSimpson.getId() + "/regexp")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-		@RequestMapping(value = "/pathVar/customers/{customerId}")
-		@ResponseBody
-		public Object findById(
-				@Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
+    @Test
+    public void findsByIdProviedInPathVariableAndByRegularSpec() throws Exception {
+        mockMvc.perform(get("/pathVar/customers/Simpson?gender=FEMALE")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[3]").doesNotExist());
 
-			return customerRepo.findAll(spec);
-		}
+        mockMvc.perform(get("/pathVar/customers/Simpson?gender=MALE")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[2]").doesNotExist());
+    }
 
-		@RequestMapping(value = "/pathVar/customers/{customerId:[0-9]+}/regexp")
-		@ResponseBody
-		public Object findByIdWithRegex(
-				@Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
+    @Test
+    public void findsByIdProvidedInPathVariableWithRegexpWithRequestMappingAtClassLevel() throws Exception {
+        mockMvc.perform(get("/rootPath/pathVar2/customers/" + homerSimpson.getId() + "/regexp")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-			return customerRepo.findAll(spec);
-		}
+    @Test
+    public void returnsHttp404WhenSentRequestContainsPathVarInInvalidFormat() throws Exception {
+        mockMvc.perform(get("/rootPath/pathVar2/customers/invalidCustomerIdFormat/regexp")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound());
+    }
 
-		@RequestMapping(value = "/pathVar/customers/{customerLastName}", params = "gender")
-		@ResponseBody
-		public Object findCustomerOrdersByLastNameAndGender(
-				@And({
-						@Spec(path = "lastName", pathVars = "customerLastName", spec = Equal.class),
-						@Spec(path = "gender", params = "gender", spec = Equal.class)
-				}) Specification<Customer> spec) {
+    @Controller
+    public static class TestController {
 
-			return customerRepo.findAll(spec);
-		}
+        @Autowired
+        CustomerRepository customerRepo;
 
-		@Controller
-		@RequestMapping(value = "/{pathName:[a-zA-Z]+}/pathVar2")
-		public static class TestControllerWithClassRequestMapping {
+        @RequestMapping(value = "/pathVar/customers/{customerId}")
+        @ResponseBody
+        public Object findById(
+                @Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
 
-			@Autowired
-			CustomerRepository customerRepo;
+            return customerRepo.findAll(spec);
+        }
 
-			@RequestMapping(value = "/customers/{customerId:[0-9]+}/regexp")
-			@ResponseBody
-			public Object findById(
-					@Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
-				return customerRepo.findAll(spec);
-			}
-		}
-	}
+        @RequestMapping(value = "/pathVar/customers/{customerId:[0-9]+}/regexp")
+        @ResponseBody
+        public Object findByIdWithRegex(
+                @Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
 
-	@Test
-	public void findsByIdProvidedInPathVariable() throws Exception {
-		mockMvc.perform(get("/pathVar/customers/" + homerSimpson.getId())
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Homer"))
-				.andExpect(jsonPath("$[1]").doesNotExist());
-	}
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void findsByIdProvidedInPathVariableWithRegex() throws Exception {
-		mockMvc.perform(get("/pathVar/customers/" + homerSimpson.getId()+"/regexp")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Homer"))
-				.andExpect(jsonPath("$[1]").doesNotExist());
-	}
+        @RequestMapping(value = "/pathVar/customers/{customerLastName}", params = "gender")
+        @ResponseBody
+        public Object findCustomerOrdersByLastNameAndGender(
+                @And({
+                        @Spec(path = "lastName", pathVars = "customerLastName", spec = Equal.class),
+                        @Spec(path = "gender", params = "gender", spec = Equal.class)
+                }) Specification<Customer> spec) {
 
-	@Test
-	public void findsByIdProviedInPathVariableAndByRegularSpec() throws Exception {
-		mockMvc.perform(get("/pathVar/customers/Simpson?gender=FEMALE")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-				.andExpect(jsonPath("$[3]").doesNotExist());
+            return customerRepo.findAll(spec);
+        }
 
-		mockMvc.perform(get("/pathVar/customers/Simpson?gender=MALE")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-				.andExpect(jsonPath("$[2]").doesNotExist());
-	}
+        @Controller
+        @RequestMapping(value = "/{pathName:[a-zA-Z]+}/pathVar2")
+        public static class TestControllerWithClassRequestMapping {
 
-	@Test
-	public void findsByIdProvidedInPathVariableWithRegexpWithRequestMappingAtClassLevel() throws Exception {
-		mockMvc.perform(get("/rootPath/pathVar2/customers/" + homerSimpson.getId()+"/regexp")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Homer"))
-				.andExpect(jsonPath("$[1]").doesNotExist());
-	}
+            @Autowired
+            CustomerRepository customerRepo;
 
-	@Test
-	public void returnsHttp404WhenSentRequestContainsPathVarInInvalidFormat() throws Exception {
-		mockMvc.perform(get("/rootPath/pathVar2/customers/invalidCustomerIdFormat/regexp")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isNotFound());
-	}
+            @RequestMapping(value = "/customers/{customerId:[0-9]+}/regexp")
+            @ResponseBody
+            public Object findById(
+                    @Spec(path = "id", pathVars = "customerId", spec = Equal.class) Specification<Customer> spec) {
+                return customerRepo.findAll(spec);
+            }
+        }
+    }
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,17 +22,17 @@ import java.lang.annotation.Target;
 
 
 /**
- * @deprecated
- * Instead this class repeated {@link net.kaczmarzyk.spring.data.jpa.domain.Join} and {@link net.kaczmarzyk.spring.data.jpa.domain.JoinFetch} annotation should be used.
- * This is going to be removed in the future.
- *
  * @author Tomasz Kaczmarzyk
+ * @deprecated Instead this class repeated {@link net.kaczmarzyk.spring.data.jpa.domain.Join}
+ * and {@link net.kaczmarzyk.spring.data.jpa.domain.JoinFetch} annotation should be used.
+ * This is going to be removed in the future.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.PARAMETER, ElementType.TYPE })
+@Target({ElementType.PARAMETER, ElementType.TYPE})
 @Deprecated
 public @interface Joins {
 
-	Join[] value() default {};
-	JoinFetch[] fetch() default {};
+    Join[] value() default {};
+
+    JoinFetch[] fetch() default {};
 }

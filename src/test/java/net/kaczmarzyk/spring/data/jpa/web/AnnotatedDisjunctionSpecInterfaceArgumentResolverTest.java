@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,7 +16,12 @@
 package net.kaczmarzyk.spring.data.jpa.web;
 
 import net.kaczmarzyk.spring.data.jpa.Customer;
-import net.kaczmarzyk.spring.data.jpa.domain.*;
+import net.kaczmarzyk.spring.data.jpa.domain.Conjunction;
+import net.kaczmarzyk.spring.data.jpa.domain.Disjunction;
+import net.kaczmarzyk.spring.data.jpa.domain.EmptyResultOnTypeMismatch;
+import net.kaczmarzyk.spring.data.jpa.domain.Equal;
+import net.kaczmarzyk.spring.data.jpa.domain.In;
+import net.kaczmarzyk.spring.data.jpa.domain.Like;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
 import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.assertj.core.api.Assertions;
@@ -39,108 +44,108 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class AnnotatedDisjunctionSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	// TC-1. interface with @Disjunction spec
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction(
-			value = @And({
-					@Spec(params = "gender", path = "gender", spec = Equal.class),
-					@Spec(params = "lastName", path = "lastName", spec = Equal.class)
-			}),
-			or = {
-					@Spec(params = "registrationDate", paramSeparator = ',', path = "registrationDate", spec = In.class)
-			})
-	private interface GenderAndLastNameOrRegistrationDateFilter extends Specification<Customer> {
-	}
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-	// TC-2. interface extending two interfaces with @Disjunction spec
-	@net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction(value = @And({
-			@Spec(params = "firstName", path = "firstName", spec = Equal.class)
-	}))
-	private interface FirstNameFilter extends Specification<Customer> {
+    @Test // TC-1. interface with @Disjunction spec
+    public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
+        MethodParameter param = methodParameter("annotatedInterface", GenderAndLastNameOrRegistrationDateFilter.class);
 
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("gender", "MALE")
+                .withParameterValues("lastName", "Simpson")
+                .withParameterValues("registrationDate", "2014-03-20").build();
 
-	private interface SpecExtendedByTwoOtherDisjunctionFilters extends GenderAndLastNameOrRegistrationDateFilter, FirstNameFilter {
-	}
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-	static class TestController {
-		// TC-1. interface with @Disjunction spec
-		public void annotatedInterface(GenderAndLastNameOrRegistrationDateFilter spec) {
-		}
+        assertThat(resolved)
+                .isInstanceOf(GenderAndLastNameOrRegistrationDateFilter.class);
 
-		// TC-2. interface extending two interfaces with @Disjunction spec
-		public void getCustomersBySpecExtendedByTwoOtherDisjunctionFiltersExtendedByParamSimpleSpec(
-				@Spec(params = "nickName", path = "nickName", spec = Like.class) SpecExtendedByTwoOtherDisjunctionFilters spec) {
-		}
-	}
+        assertThat(innerSpecsFromDisjunction(resolved))
+                .hasSize(2)
+                .containsExactly(
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
+                                new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName", "Simpson"))
+                        ),
+                        new EmptyResultOnTypeMismatch<>(in(ctx, "registrationDate", "2014-03-20"))
+                );
+    }
 
-	@Test // TC-1. interface with @Disjunction spec
-	public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
-		MethodParameter param = methodParameter("annotatedInterface", GenderAndLastNameOrRegistrationDateFilter.class);
+    @Test // TC-2. interface extending two interfaces with @Disjunction spec
+    public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithDisjunctionFilterAndSimpleSpecParam() throws Exception {
+        MethodParameter param = methodParameter(
+                "getCustomersBySpecExtendedByTwoOtherDisjunctionFiltersExtendedByParamSimpleSpec",
+                SpecExtendedByTwoOtherDisjunctionFilters.class
+        );
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("gender", "MALE")
-				.withParameterValues("lastName", "Simpson")
-				.withParameterValues("registrationDate", "2014-03-20").build();
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("gender", "MALE")
+                .withParameterValues("lastName", "Simpson")
+                .withParameterValues("firstName", "Homer")
+                .withParameterValues("registrationDate", "2014-03-25,2014-03-20")
+                .withParameterValues("nickName", "Hom").build();
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(resolved)
-				.isInstanceOf(GenderAndLastNameOrRegistrationDateFilter.class);
+        assertThat(resolved)
+                .isInstanceOf(SpecExtendedByTwoOtherDisjunctionFilters.class);
 
-		assertThat(innerSpecsFromDisjunction(resolved))
-				.hasSize(2)
-				.containsExactly(
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
-								new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName", "Simpson"))
-						),
-						new EmptyResultOnTypeMismatch<>(in(ctx, "registrationDate", "2014-03-20"))
-				);
-	}
+        Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
 
-	@Test // TC-2. interface extending two interfaces with @Disjunction spec
-	public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithDisjunctionFilterAndSimpleSpecParam() throws Exception {
-		MethodParameter param = methodParameter(
-				"getCustomersBySpecExtendedByTwoOtherDisjunctionFiltersExtendedByParamSimpleSpec",
-				SpecExtendedByTwoOtherDisjunctionFilters.class
-		);
+        Assertions.assertThat(innerSpecs)
+                .hasSize(3)
+                .containsOnly(
+                        new Disjunction<>(
+                                new Conjunction<>(
+                                        new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
+                                        new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName", "Simpson"))
+                                ),
+                                new EmptyResultOnTypeMismatch<>(in(ctx, "registrationDate", "2014-03-25", "2014-03-20"))
+                        ),
+                        new Disjunction<>(new Conjunction<>(new EmptyResultOnTypeMismatch<>(equal(ctx, "firstName", "Homer")))),
+                        new Like<>(ctx.queryContext(), "nickName", "Hom")
+                );
+    }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("gender", "MALE")
-				.withParameterValues("lastName", "Simpson")
-				.withParameterValues("firstName", "Homer")
-				.withParameterValues("registrationDate", "2014-03-25,2014-03-20")
-				.withParameterValues("nickName", "Hom").build();
+    // TC-1. interface with @Disjunction spec
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction(
+            value = @And({
+                    @Spec(params = "gender", path = "gender", spec = Equal.class),
+                    @Spec(params = "lastName", path = "lastName", spec = Equal.class)
+            }),
+            or = {
+                    @Spec(params = "registrationDate", paramSeparator = ',', path = "registrationDate", spec = In.class)
+            })
+    private interface GenderAndLastNameOrRegistrationDateFilter extends Specification<Customer> {
+    }
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+    // TC-2. interface extending two interfaces with @Disjunction spec
+    @net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction(value = @And({
+            @Spec(params = "firstName", path = "firstName", spec = Equal.class)
+    }))
+    private interface FirstNameFilter extends Specification<Customer> {
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+    }
 
-		assertThat(resolved)
-				.isInstanceOf(SpecExtendedByTwoOtherDisjunctionFilters.class);
+    private interface SpecExtendedByTwoOtherDisjunctionFilters extends GenderAndLastNameOrRegistrationDateFilter, FirstNameFilter {
+    }
 
-		Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
+    static class TestController {
+        // TC-1. interface with @Disjunction spec
+        public void annotatedInterface(GenderAndLastNameOrRegistrationDateFilter spec) {
+        }
 
-		Assertions.assertThat(innerSpecs)
-				.hasSize(3)
-				.containsOnly(
-						new Disjunction<>(
-								new Conjunction<>(
-										new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
-										new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName","Simpson"))
-								),
-								new EmptyResultOnTypeMismatch<>(in(ctx,"registrationDate", "2014-03-25", "2014-03-20"))
-						),
-						new Disjunction<>(new Conjunction<>(new EmptyResultOnTypeMismatch<>(equal(ctx, "firstName", "Homer")))),
-						new Like<>(ctx.queryContext(), "nickName", "Hom")
-				);
-	}
+        // TC-2. interface extending two interfaces with @Disjunction spec
+        public void getCustomersBySpecExtendedByTwoOtherDisjunctionFiltersExtendedByParamSimpleSpec(
+                @Spec(params = "nickName", path = "nickName", spec = Like.class) SpecExtendedByTwoOtherDisjunctionFilters spec) {
+        }
+    }
 
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,96 +41,96 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class AnnotatedAndSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	// TC-1. interface with @And spec
-	@And({
-			@Spec(params = "gender", path = "gender", spec = Equal.class),
-			@Spec(params = "lastName", path = "lastName", spec = Equal.class)
-	})
-	private interface GenderLastNameAndSpec extends Specification<Customer> {
-	}
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-	@And({
-			@Spec(params = "firstName", path = "firstName", spec = Equal.class)
-	})
-	private interface FirstNameAndSpec extends Specification<Customer> {
+    @Test // TC-1. interface with @And spec
+    public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
+        MethodParameter param = methodParameter("annotatedInterface", GenderLastNameAndSpec.class);
 
-	}
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("gender", "MALE")
+                .withParameterValues("lastName", "Simpson").build();
 
-	// TC-2. interface extending two interfaces with and spec
-	private interface EmptyFilterExtendingTwoInterfacesWithAndFilter extends GenderLastNameAndSpec, FirstNameAndSpec {
-	}
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-	static class TestController {
-		// TC-1. interface with @And spec
-		public void annotatedInterface(GenderLastNameAndSpec genderLastNameAndSpec) {
-		}
+        assertThat(resolved)
+                .isInstanceOf(GenderLastNameAndSpec.class);
 
-		// TC-2. interface extending two interfaces with and spec
-		public void getCustomersByEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam(
-				@Spec(params = "nickName", path = "nickName", spec = Like.class) EmptyFilterExtendingTwoInterfacesWithAndFilter spec) {
-		}
-	}
+        assertThat(innerSpecs(resolved))
+                .hasSize(2)
+                .containsExactlyInAnyOrder(
+                        new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
+                        new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName", "Simpson"))
+                );
+    }
 
-	@Test // TC-1. interface with @And spec
-	public void createsSpecFromSimpleAnnotatedInterface() throws Exception {
-		MethodParameter param = methodParameter("annotatedInterface", GenderLastNameAndSpec.class);
+    @Test // TC-2. interface extending two interfaces with @Or spec
+    public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam() throws Exception {
+        MethodParameter param = methodParameter(
+                "getCustomersByEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam",
+                EmptyFilterExtendingTwoInterfacesWithAndFilter.class
+        );
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("gender", "MALE")
-				.withParameterValues("lastName", "Simpson").build();
+        NativeWebRequest req = nativeWebRequest()
+                .withParameterValues("gender", "MALE")
+                .withParameterValues("lastName", "Simpson")
+                .withParameterValues("firstName", "Homer")
+                .withParameterValues("nickName", "Hom").build();
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+        Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
 
-		assertThat(resolved)
-				.isInstanceOf(GenderLastNameAndSpec.class);
+        assertThat(resolved)
+                .isInstanceOf(EmptyFilterExtendingTwoInterfacesWithAndFilter.class);
 
-		assertThat(innerSpecs(resolved))
-				.hasSize(2)
-				.containsExactlyInAnyOrder(
-						new EmptyResultOnTypeMismatch<>(equal(ctx, "gender", "MALE")),
-						new EmptyResultOnTypeMismatch<>(equal(ctx, "lastName", "Simpson"))
-				);
-	}
+        Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
 
-	@Test // TC-2. interface extending two interfaces with @Or spec
-	public void createsSpecFromEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam() throws Exception {
-		MethodParameter param = methodParameter(
-				"getCustomersByEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam",
-				EmptyFilterExtendingTwoInterfacesWithAndFilter.class
-		);
+        assertThat(innerSpecs)
+                .hasSize(3)
+                .containsOnly(
+                        new Conjunction<>(new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "firstName", new String[]{"Homer"}, converter))),
+                        new Conjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "gender", new String[]{"MALE"}, converter)),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "lastName", new String[]{"Simpson"}, converter))
+                        ),
+                        new Like<>(ctx.queryContext(), "nickName", "Hom")
+                );
+    }
 
-		NativeWebRequest req = nativeWebRequest()
-				.withParameterValues("gender", "MALE")
-				.withParameterValues("lastName", "Simpson")
-				.withParameterValues("firstName", "Homer")
-				.withParameterValues("nickName", "Hom").build();
+    // TC-1. interface with @And spec
+    @And({
+            @Spec(params = "gender", path = "gender", spec = Equal.class),
+            @Spec(params = "lastName", path = "lastName", spec = Equal.class)
+    })
+    private interface GenderLastNameAndSpec extends Specification<Customer> {
+    }
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+    @And({
+            @Spec(params = "firstName", path = "firstName", spec = Equal.class)
+    })
+    private interface FirstNameAndSpec extends Specification<Customer> {
 
-		Specification<?> resolved = (Specification<?>) specificationArgumentResolver.resolveArgument(param, null, req, null);
+    }
 
-		assertThat(resolved)
-				.isInstanceOf(EmptyFilterExtendingTwoInterfacesWithAndFilter.class);
+    // TC-2. interface extending two interfaces with and spec
+    private interface EmptyFilterExtendingTwoInterfacesWithAndFilter extends GenderLastNameAndSpec, FirstNameAndSpec {
+    }
 
-		Collection<Specification<Object>> innerSpecs = innerSpecs(resolved);
+    static class TestController {
+        // TC-1. interface with @And spec
+        public void annotatedInterface(GenderLastNameAndSpec genderLastNameAndSpec) {
+        }
 
-		assertThat(innerSpecs)
-				.hasSize(3)
-				.containsOnly(
-						new Conjunction<>(new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "firstName", new String[]{ "Homer" }, converter))),
-						new Conjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "gender", new String[]{ "MALE" }, converter)),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(ctx.queryContext(), "lastName", new String[]{ "Simpson" }, converter))
-						),
-						new Like<>(ctx.queryContext(), "nickName", "Hom")
-				);
-	}
+        // TC-2. interface extending two interfaces with and spec
+        public void getCustomersByEmptyFilterExtendingTwoInterfacesWithAndFilterAndSimpleSpecParam(
+                @Spec(params = "nickName", path = "nickName", spec = Like.class) EmptyFilterExtendingTwoInterfacesWithAndFilter spec) {
+        }
+    }
 
 }

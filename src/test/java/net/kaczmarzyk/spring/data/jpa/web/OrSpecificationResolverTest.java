@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,12 +40,12 @@ public class OrSpecificationResolverTest extends ResolverTestBase {
     public void resolvesWrapperOfInnerSpecs() throws Exception {
         MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
         NativeWebRequest req = mock(NativeWebRequest.class);
-        when(req.getParameterValues("path1")).thenReturn(new String[] { "value1" });
-        when(req.getParameterValues("path2")).thenReturn(new String[] { "value2" });
+        when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
+        when(req.getParameterValues("path2")).thenReturn(new String[]{"value2"});
 
-	    WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	    Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
 
         assertThat(result).isEqualTo(new Disjunction<>(new Like<>(ctx.queryContext(), "path1", "value1"),
                 new Like<>(ctx.queryContext(), "path2", "value2")));
@@ -55,11 +55,11 @@ public class OrSpecificationResolverTest extends ResolverTestBase {
     public void skipsMissingInnerSpec() throws Exception {
         MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
         NativeWebRequest req = mock(NativeWebRequest.class);
-        when(req.getParameterValues("path1")).thenReturn(new String[] { "value1" });
+        when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
 
-	    WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	    Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
 
         assertThat(result).isEqualTo(new Disjunction<>(new Like<>(ctx.queryContext(), "path1", "value1")));
     }
@@ -69,22 +69,22 @@ public class OrSpecificationResolverTest extends ResolverTestBase {
         MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
         NativeWebRequest req = mock(NativeWebRequest.class);
 
-	    WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-	    Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(Or.class));
 
         assertThat(result).isNull();
+    }
+
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
     }
 
     public static class TestController {
 
         public void testMethod(
-                @Or({ @Spec(path = "path1", spec = Like.class), @Spec(path = "path2", spec = Like.class) }) Specification<Object> spec) {
+                @Or({@Spec(path = "path1", spec = Like.class), @Spec(path = "path2", spec = Like.class)}) Specification<Object> spec) {
         }
     }
-
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
 }

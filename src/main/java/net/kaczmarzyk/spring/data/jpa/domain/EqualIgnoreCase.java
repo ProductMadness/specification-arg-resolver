@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,13 +15,13 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
 import java.util.Objects;
 
 /**
@@ -36,9 +36,8 @@ import java.util.Objects;
 public class EqualIgnoreCase<T> extends PathSpecification<T> {
 
     private static final long serialVersionUID = 2L;
-
+    private final Converter converter;
     protected String expectedValue;
-    private Converter converter;
 
     public EqualIgnoreCase(QueryContext queryContext, String path, String[] httpParamValues, Converter converter) {
         super(queryContext, path);
@@ -53,7 +52,7 @@ public class EqualIgnoreCase<T> extends PathSpecification<T> {
     public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
 
         if (path(root).getJavaType().equals(String.class)) {
-            return cb.equal(cb.upper(this.<String>path(root)), expectedValue.toUpperCase());
+            return cb.equal(cb.upper(this.path(root)), expectedValue.toUpperCase());
         }
 
         Class<?> typeOnPath = path(root).getJavaType();
@@ -62,12 +61,18 @@ public class EqualIgnoreCase<T> extends PathSpecification<T> {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
         EqualIgnoreCase<?> that = (EqualIgnoreCase<?>) o;
-        return Objects.equals(expectedValue, that.expectedValue) &&
-                Objects.equals(converter, that.converter);
+        return Objects.equals(expectedValue, that.expectedValue)
+                && Objects.equals(converter, that.converter);
     }
 
     @Override

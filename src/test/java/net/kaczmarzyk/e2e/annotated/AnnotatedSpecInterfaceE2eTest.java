@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,248 +43,249 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 public class AnnotatedSpecInterfaceE2eTest extends E2eTestBase {
 
-	@Spec(path = "lastName", spec = Like.class)
-	public static interface LastNameSpec extends Specification<Customer> {
-	}
+    @Test
+    public void filtersAccordingToFiltersInWholeInheritanceTree() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByComplexQuery")
+                        .param("firstName", "Homer")
+                        .param("itemName", "Tomacco")
+                        .param("badgeType", "Tomacco Eater")
+                        .param("genderIn", MALE.name())
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-	@Or({
-			@Spec(params = "name", path = "firstName", spec = Like.class),
-			@Spec(params = "name", path = "lastName", spec = Like.class)
-	})
-	public static interface FullNameSpec extends Specification<Customer> {
-	}
+    @Test
+    public void filtersAccordingToAnnotatedSimpleSpecInterface() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastName")
+                        .param("lastName", "im")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[5]").doesNotExist());
+    }
 
-	@And({
-			@Spec(path = "lastName", spec = Like.class),
-			@Spec(path = "gender", spec = Equal.class)
-	})
-	public static interface NameGenderSpec extends Specification<Customer> {
-	}
+    @Test
+    public void filtersAccordingToAnnotatedSimpleSpecInterfaceExtendedWithParamSpecificSpec() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
+                        .param("lastName", "im")
+                        .param("firstName", "ar")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[2]").doesNotExist());
+    }
 
-	@Spec(path = "gold", constVal = "true", spec = Equal.class)
-	public static interface GoldenSpec extends Specification<Customer> {
-	}
+    @Test
+    public void filtersAccordingToParamSpecificSpecIfInterfaceSpecParamIsMissing() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
+                        .param("firstName", "o")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[2]").doesNotExist());
+    }
 
-	@Or({
-			@Spec(params = "name", path = "firstName", spec = Like.class),
-			@Spec(params = "name", path = "lastName", spec = Like.class)
-	})
-	public static interface GoldenAndFullNameSpec extends GoldenSpec {
-	}
+    @Test
+    public void filtersAccordingInterfaceSpecIfParamSpecParameterIsMissing() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
+                        .param("lastName", "lak")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
+                .andExpect(jsonPath("$[2]").doesNotExist());
+    }
 
-	@Join(path = "orders", alias = "o")
-	@Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
-	public interface ItemNameFilter<T> extends Specification<T> {
-	}
+    @Test
+    public void doesNotFilterAtAllIfBothIfaceAndParamParametersAreMissing() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
+                .andExpect(jsonPath("$[8]").doesNotExist());
+    }
 
-	@And(value = {
-			@Spec(path = "gender", params = "genderIn", spec = In.class),
-			@Spec(path = "firstName", params = "firstName", spec = In.class)
-	})
-	public interface NameGenderFilterInheritedItemNameFilter extends ItemNameFilter<Customer> {
-	}
+    @Test
+    public void doesNoFilteringIfParametersAreMissing() throws Exception {
+        mockMvc.perform(get("/anno-iface/customersByLastName")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
+                .andExpect(jsonPath("$[8]").doesNotExist());
+    }
 
-	@Join(path = "badges", alias = "b")
-	@Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
-	public interface BadgeFilter extends Specification<Customer> {}
+    @Test
+    public void filtersAccordingToAnnotatedOrSpecInterface() throws Exception {
+        mockMvc.perform(get("/anno-iface/customers")
+                        .param("name", "o")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[6]").doesNotExist());
+    }
 
-	public interface CustomerFilterWithMultiInheritance extends NameGenderFilterInheritedItemNameFilter, BadgeFilter {
-	}
+    @Test
+    public void filtersAccordingToAnnotatedOrSpecInterfaceExtendedWithParamSpec() throws Exception {
+        mockMvc.perform(get("/anno-iface/customers")
+                        .param("name", "o")
+                        .param("address.street", "green")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[5]").doesNotExist());
+    }
 
-	@RestController
-	public static class CustomSpecTestsController {
+    @Test
+    public void filtersAccordingToAnnotatedAndSpecInterface() throws Exception {
+        mockMvc.perform(get("/anno-iface/customers")
+                        .param("lastName", "im")
+                        .param("gender", "FEMALE")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[3]").doesNotExist());
+    }
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @Test
+    public void filtersByConjunctionOfAnnotatedInterfaceAndItsParentClass() throws Exception {
+        mockMvc.perform(get("/anno-iface/golden-customers")
+                        .param("name", "er")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
+                .andExpect(jsonPath("$[1]").doesNotExist()); // Homer is not marked as gold
+    }
 
-		@RequestMapping(value = "/anno-iface/customersByComplexQuery", params = {"itemName", "genderIn", "badgeType", "firstName"})
-		public List<Customer> getCustomersWithCustomFilter(CustomerFilterWithMultiInheritance customerFilter) {
-			return customerRepo.findAll(customerFilter);
-		}
+    @Spec(path = "lastName", spec = Like.class)
+    public interface LastNameSpec extends Specification<Customer> {
+    }
 
-		@RequestMapping(value = "/anno-iface/customersByLastName")
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomSimpleSpec(LastNameSpec spec) {
-			return customerRepo.findAll(spec);
-		}
+    @Or({
+            @Spec(params = "name", path = "firstName", spec = Like.class),
+            @Spec(params = "name", path = "lastName", spec = Like.class)
+    })
+    public interface FullNameSpec extends Specification<Customer> {
+    }
 
-		@RequestMapping(value = "/anno-iface/customersByLastNameAndFirstName")
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomSimpleSpecExtenedWithParamSimpleSpec(
-				@Spec(path = "firstName", spec = Like.class) LastNameSpec spec) {
-			return customerRepo.findAll(spec);
-		}
+    @And({
+            @Spec(path = "lastName", spec = Like.class),
+            @Spec(path = "gender", spec = Equal.class)
+    })
+    public interface NameGenderSpec extends Specification<Customer> {
+    }
 
-		@RequestMapping(value = "/anno-iface/customers", params = "name")
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomOrSpec(FullNameSpec spec) {
-			return customerRepo.findAll(spec);
-		}
+    @Spec(path = "gold", constVal = "true", spec = Equal.class)
+    public interface GoldenSpec extends Specification<Customer> {
+    }
 
-		@RequestMapping(value = "/anno-iface/golden-customers", params = "name")
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomSpecInheritanceTree(GoldenAndFullNameSpec spec) {
-			return customerRepo.findAll(spec);
-		}
+    @Or({
+            @Spec(params = "name", path = "firstName", spec = Like.class),
+            @Spec(params = "name", path = "lastName", spec = Like.class)
+    })
+    public interface GoldenAndFullNameSpec extends GoldenSpec {
+    }
 
-		@RequestMapping(value = "/anno-iface/customers", params = {"name", "address.street"})
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomOrSpecExtendedWithParamSimpleSpec(
-				@Spec(path = "address.street", spec = Like.class) FullNameSpec spec) {
-			return customerRepo.findAll(spec);
-		}
+    @Join(path = "orders", alias = "o")
+    @Spec(path = "o.itemName", params = "itemName", spec = Equal.class)
+    public interface ItemNameFilter<T> extends Specification<T> {
+    }
 
-		@RequestMapping(value = "/anno-iface/customers", params = {"lastName", "gender"})
-		@ResponseBody
-		public List<Customer> getCustomersWithCustomAndSpec(NameGenderSpec spec) {
-			return customerRepo.findAll(spec);
-		}
-	}
+    @And(value = {
+            @Spec(path = "gender", params = "genderIn", spec = In.class),
+            @Spec(path = "firstName", params = "firstName", spec = In.class)
+    })
+    public interface NameGenderFilterInheritedItemNameFilter extends ItemNameFilter<Customer> {
+    }
 
-	@Test
-	public void filtersAccordingToFiltersInWholeInheritanceTree() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByComplexQuery")
-				.param("firstName", "Homer")
-				.param("itemName", "Tomacco")
-				.param("badgeType", "Tomacco Eater")
-				.param("genderIn", MALE.name())
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[1]").doesNotExist());
-	}
+    @Join(path = "badges", alias = "b")
+    @Spec(path = "b.badgeType", params = "badgeType", spec = Equal.class)
+    public interface BadgeFilter extends Specification<Customer> {
+    }
 
-	@Test
-	public void filtersAccordingToAnnotatedSimpleSpecInterface() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastName")
-				.param("lastName", "im")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[5]").doesNotExist());
-	}
+    public interface CustomerFilterWithMultiInheritance extends NameGenderFilterInheritedItemNameFilter, BadgeFilter {
+    }
 
-	@Test
-	public void filtersAccordingToAnnotatedSimpleSpecInterfaceExtendedWithParamSpecificSpec() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
-				.param("lastName", "im")
-				.param("firstName", "ar")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[2]").doesNotExist());
-	}
+    @RestController
+    public static class CustomSpecTestsController {
 
-	@Test
-	public void filtersAccordingToParamSpecificSpecIfInterfaceSpecParamIsMissing() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
-				.param("firstName", "o")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[2]").doesNotExist());
-	}
+        @Autowired
+        CustomerRepository customerRepo;
 
-	@Test
-	public void filtersAccordingInterfaceSpecIfParamSpecParameterIsMissing() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
-				.param("lastName", "lak")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
-			.andExpect(jsonPath("$[2]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/customersByComplexQuery", params = {"itemName", "genderIn", "badgeType", "firstName"})
+        public List<Customer> getCustomersWithCustomFilter(CustomerFilterWithMultiInheritance customerFilter) {
+            return customerRepo.findAll(customerFilter);
+        }
 
-	@Test
-	public void doesNotFilterAtAllIfBothIfaceAndParamParametersAreMissing() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastNameAndFirstName")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
-			.andExpect(jsonPath("$[8]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/customersByLastName")
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomSimpleSpec(LastNameSpec spec) {
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void doesNoFilteringIfParametersAreMissing() throws Exception {
-		mockMvc.perform(get("/anno-iface/customersByLastName")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Minnie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
-			.andExpect(jsonPath("$[8]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/customersByLastNameAndFirstName")
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomSimpleSpecExtenedWithParamSimpleSpec(
+                @Spec(path = "firstName", spec = Like.class) LastNameSpec spec) {
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void filtersAccordingToAnnotatedOrSpecInterface() throws Exception {
-		mockMvc.perform(get("/anno-iface/customers")
-				.param("name", "o")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-			.andExpect(jsonPath("$[6]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/customers", params = "name")
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomOrSpec(FullNameSpec spec) {
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void filtersAccordingToAnnotatedOrSpecInterfaceExtendedWithParamSpec() throws Exception {
-		mockMvc.perform(get("/anno-iface/customers")
-				.param("name", "o")
-				.param("address.street", "green")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[5]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/golden-customers", params = "name")
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomSpecInheritanceTree(GoldenAndFullNameSpec spec) {
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void filtersAccordingToAnnotatedAndSpecInterface() throws Exception {
-		mockMvc.perform(get("/anno-iface/customers")
-				.param("lastName", "im")
-				.param("gender", "FEMALE")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-			.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-			.andExpect(jsonPath("$[3]").doesNotExist());
-	}
+        @RequestMapping(value = "/anno-iface/customers", params = {"name", "address.street"})
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomOrSpecExtendedWithParamSimpleSpec(
+                @Spec(path = "address.street", spec = Like.class) FullNameSpec spec) {
+            return customerRepo.findAll(spec);
+        }
 
-	@Test
-	public void filtersByConjunctionOfAnnotatedInterfaceAndItsParentClass() throws Exception {
-		mockMvc.perform(get("/anno-iface/golden-customers")
-				.param("name", "er")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
-			.andExpect(jsonPath("$[1]").doesNotExist()); // Homer is not marked as gold
-	}
+        @RequestMapping(value = "/anno-iface/customers", params = {"lastName", "gender"})
+        @ResponseBody
+        public List<Customer> getCustomersWithCustomAndSpec(NameGenderSpec spec) {
+            return customerRepo.findAll(spec);
+        }
+    }
 }
