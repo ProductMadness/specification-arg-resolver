@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,8 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +29,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = { ApplicationWithSARConfiguredWithApplicationContext.class })
+@ContextConfiguration(classes = {ApplicationWithSARConfiguredWithApplicationContext.class})
 @WebAppConfiguration
 @Transactional
 @TestPropertySource("classpath:application.properties")
@@ -39,18 +38,16 @@ public abstract class IntegrationTestBaseWithSARConfiguredWithApplicationContext
 
     @Autowired
     protected CustomerRepository customerRepo;
-    
+
     @PersistenceContext
     protected EntityManager em;
-    
-	@Autowired
-	WebApplicationContext wac;
-	
-	protected MockMvc mockMvc;
-	
-	@BeforeEach
-	public void setupMockMvc() {
-		mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-	}
- 
+    protected MockMvc mockMvc;
+    @Autowired
+    WebApplicationContext wac;
+
+    @BeforeEach
+    public void setupMockMvc() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    }
+
 }

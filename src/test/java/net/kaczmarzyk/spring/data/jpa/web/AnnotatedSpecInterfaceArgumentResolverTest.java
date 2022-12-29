@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,7 +23,12 @@ import net.kaczmarzyk.spring.data.jpa.domain.In;
 import net.kaczmarzyk.spring.data.jpa.domain.Like;
 import net.kaczmarzyk.spring.data.jpa.utils.Converter;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
-import net.kaczmarzyk.spring.data.jpa.web.annotation.*;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.And;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Conjunction;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Disjunction;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.OnTypeMismatch;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Or;
+import net.kaczmarzyk.spring.data.jpa.web.annotation.Spec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -44,217 +49,234 @@ import static org.mockito.Mockito.mock;
  */
 public class AnnotatedSpecInterfaceArgumentResolverTest extends AnnotatedSpecInterfaceTestBase {
 
-	SpecificationArgumentResolver resolver = new SpecificationArgumentResolver();
+    SpecificationArgumentResolver resolver = new SpecificationArgumentResolver();
+    Converter converter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
+    NativeWebRequest req = mock(NativeWebRequest.class);
+    QueryContext queryCtx = new WebRequestQueryContext(req);
 
-	public static interface IfaceWithoutAnnotations extends Specification<Object> {
-	}
+    @BeforeEach
+    public void init() {
+        req = nativeWebRequest()
+                .withParameterValues("deleted", "false")
+                .withParameterValues("gold", "true")
+                .withParameterValues("status", "ACTIVE", "VERY_ACTIVE")
+                .withParameterValues("name", "Homer")
+                .withParameterValues("name2", "Max")
+                .withParameterValues("firstName", "Homer")
+                .withParameterValues("lastName", "Simpson")
+                .withParameterValues("weight", "121")
+                .withParameterValues("weight2", "99")
+                .withParameterValues("gender", "MALE").build();
+    }
 
-	@Spec(path = "name", spec = Like.class)
-	public static interface IfaceWithSimpleSpec extends Specification<Object> {
-	}
+    @Test
+    public void doesNotSupportTypeThatDoesntExtendSpecification() {
+        MethodParameter param = methodParameter("methodWithNonSpec", IfaceNotExtendingSpecification.class);
 
-	@Spec(path = "name", spec = Like.class)
-	public static interface IfaceNotExtendingSpecification {
-	}
+        assertFalse(resolver.supportsParameter(param));
+    }
 
-	@And({ @Spec(path = "name", spec = Like.class) })
-	public static interface IfaceWithAnd extends Specification<Object> {
-	}
+    @Test
+    public void doesNotSupportIfaceWithoutAnnotationsSpecification() {
+        MethodParameter param = methodParameter("methodWithSpecWithoutAnnotations", IfaceWithoutAnnotations.class);
 
-	@Conjunction({
-			@Or({
-					@Spec(path = "firstName", spec = Like.class),
-					@Spec(path = "lastName", spec = Like.class)
-			}),
-			@Or({
-					@Spec(path = "gender", spec = Equal.class),
-					@Spec(path = "weight", spec = Equal.class)
-			})
-	})
-	public static interface IfaceWithConjunction extends Specification<Object> {
-	}
+        assertFalse(resolver.supportsParameter(param));
+    }
 
-	@Disjunction({
-			@And({
-					@Spec(path = "firstName", spec = Like.class),
-					@Spec(path = "lastName", spec = Like.class)
-			}),
-			@And({
-					@Spec(path = "gender", spec = Equal.class),
-					@Spec(path = "weight", spec = Equal.class)
-			})
-	})
-	public static interface IfaceWithDisjunction extends Specification<Object> {
-	}
+    @Test
+    public void doesNotSupportClasses() {
+        MethodParameter param = methodParameter("methodWithClass", Clazz.class);
 
-	@And({ @Spec(path = "name", spec = Like.class) })
-	@Spec(path = "name", spec = Like.class)
-	public static interface OverAnnotatedInterface extends Specification<Object> {
-	}
+        assertFalse(resolver.supportsParameter(param));
+    }
 
-	@Or({ @Spec(path = "name", spec = Like.class) })
-	public static interface IfaceWithOr extends Specification<Object> {
-	}
+    @Test
+    public void supportsIterfaceWithSimpleSpec() throws Exception {
+        MethodParameter param = methodParameter("methodWithSimpleSpec", IfaceWithSimpleSpec.class);
 
-	@Spec(path = "name", spec = Like.class)
-	public static class Clazz extends Like<Object> {
-		public Clazz(QueryContext queryCtx, String path, String[] args) {
-			super(queryCtx, path, args);
-		}
-	}
+        assertTrue(resolver.supportsParameter(param));
+        assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithSimpleSpec.class);
+    }
 
-	@Spec(path = "deleted", spec = Equal.class)
-	public static interface BaseInterface extends Specification<Customer> {
-	}
+    @Test
+    public void supportsIterfaceWithAndSpec() throws Exception {
+        MethodParameter param = methodParameter("methodWithAnd", IfaceWithAnd.class);
 
-	@Or({
-			@Spec(path = "name", spec = Like.class),
-			@Spec(path = "weight", spec = Equal.class)
-	})
-	public static interface ChildInterface extends BaseInterface {
-	}
+        assertTrue(resolver.supportsParameter(param));
+        assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithAnd.class);
+    }
 
-	@Or({
-			@Spec(path = "name2", spec = Like.class),
-			@Spec(path = "weight2", spec = Equal.class)
-	})
-	public static interface Chil2dInterface extends BaseInterface {
-	}
+    @Test
+    public void supportsInterfaceWithConjunctionSpec() throws Exception {
+        MethodParameter param = methodParameter("methodWithConjunction", IfaceWithConjunction.class);
 
-	@Or({
-			@Spec(path = "gold", spec = Equal.class),
-			@Spec(path = "status", spec = In.class)
-	})
-	public static interface GrandChildInterface extends ChildInterface, Chil2dInterface {
-	}
+        assertTrue(resolver.supportsParameter(param));
+        assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithConjunction.class);
+    }
 
-	Converter converter = Converter.withTypeMismatchBehaviour(OnTypeMismatch.EMPTY_RESULT, null);
+    @Test
+    public void supportsInterfaceWithDisjunctionSpec() throws Exception {
+        MethodParameter param = methodParameter("methodWithDisjunction", IfaceWithDisjunction.class);
 
-	public static class TestController {
-		public void methodWithSimpleSpec(IfaceWithSimpleSpec arg) {}
-		public void methodWithClass(Clazz arg) {}
-		public void methodWithOverannotatedSpec(OverAnnotatedInterface arg) {}
-		public void methodWithSpecWithoutAnnotations(IfaceWithoutAnnotations arg) {}
-		public void methodWithNonSpec(IfaceNotExtendingSpecification arg) {}
-		public void methodWithAnd(IfaceWithAnd arg) {}
-		public void methodWithConjunction(IfaceWithConjunction arg) {}
-		public void methodWithOr(IfaceWithOr arg) {}
-		public void methodWithDisjunction(IfaceWithDisjunction arg) {}
-		public void methodWithInheritanceTree(GrandChildInterface arg) {}
-	}
+        assertTrue(resolver.supportsParameter(param));
+        assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithDisjunction.class);
+    }
 
-	NativeWebRequest req = mock(NativeWebRequest.class);
-	QueryContext queryCtx = new WebRequestQueryContext(req);
+    @Test
+    public void supportsIterfaceWithDisjunctionSpec() throws Exception {
+        MethodParameter param = methodParameter("methodWithOr", IfaceWithOr.class);
 
-	@BeforeEach
-	public void init() {
-		req = nativeWebRequest()
-				.withParameterValues("deleted", "false")
-				.withParameterValues("gold", "true")
-				.withParameterValues("status", "ACTIVE", "VERY_ACTIVE")
-				.withParameterValues("name", "Homer")
-				.withParameterValues("name2", "Max")
-				.withParameterValues("firstName", "Homer")
-				.withParameterValues("lastName", "Simpson")
-				.withParameterValues("weight", "121")
-				.withParameterValues("weight2", "99")
-				.withParameterValues("gender", "MALE").build();
-	}
+        assertTrue(resolver.supportsParameter(param));
+        assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithOr.class);
+    }
 
-	@Test
-	public void doesNotSupportTypeThatDoesntExtendSpecification() {
-		MethodParameter param = methodParameter("methodWithNonSpec", IfaceNotExtendingSpecification.class);
+    @Test
+    public void resolvedSpecHasWorkingToStringMethod() throws Exception {
+        MethodParameter param = methodParameter("methodWithOr", IfaceWithOr.class);
 
-		assertFalse(resolver.supportsParameter(param));
-	}
+        Object resolved = resolver.resolveArgument(param, null, req, null);
 
-	@Test
-	public void doesNotSupportIfaceWithoutAnnotationsSpecification() {
-		MethodParameter param = methodParameter("methodWithSpecWithoutAnnotations", IfaceWithoutAnnotations.class);
+        assertThat(resolved.toString()).startsWith("IfaceWithOr[");
+    }
 
-		assertFalse(resolver.supportsParameter(param));
-	}
+    @Test
+    public void createsConjunctionOutOfSpecsFromWholeInheritanceTree() throws Exception {
+        MethodParameter param = methodParameter("methodWithInheritanceTree", GrandChildInterface.class);
 
-	@Test
-	public void doesNotSupportClasses() {
-		MethodParameter param = methodParameter("methodWithClass", Clazz.class);
+        Specification<?> resolved = (Specification<?>) resolver.resolveArgument(param, null, req, null);
 
-		assertFalse(resolver.supportsParameter(param));
-	}
+        Collection<Specification<Object>> resolvedInnerSpecs = innerSpecs(resolved);
+        assertThat(resolvedInnerSpecs)
+                .hasSize(4)
+                .containsOnly(
+                        new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "deleted", new String[]{"false"}, converter)),
+                        new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
+                                new Like<>(queryCtx, "name", "Homer"),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "weight", new String[]{"121"}, converter))),
+                        new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
+                                new Like<>(queryCtx, "name2", "Max"),
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "weight2", new String[]{"99"}, converter))),
+                        new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
+                                new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "gold", new String[]{"true"}, converter)),
+                                new EmptyResultOnTypeMismatch<>(new In<>(queryCtx, "status", new String[]{"ACTIVE", "VERY_ACTIVE"}, converter))));
+    }
 
-	@Test
-	public void supportsIterfaceWithSimpleSpec() throws Exception {
-		MethodParameter param = methodParameter("methodWithSimpleSpec", IfaceWithSimpleSpec.class);
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-		assertTrue(resolver.supportsParameter(param));
-		assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithSimpleSpec.class);
-	}
+    public interface IfaceWithoutAnnotations extends Specification<Object> {
+    }
 
-	@Test
-	public void supportsIterfaceWithAndSpec() throws Exception {
-		MethodParameter param = methodParameter("methodWithAnd", IfaceWithAnd.class);
+    @Spec(path = "name", spec = Like.class)
+    public interface IfaceWithSimpleSpec extends Specification<Object> {
+    }
 
-		assertTrue(resolver.supportsParameter(param));
-		assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithAnd.class);
-	}
+    @Spec(path = "name", spec = Like.class)
+    public interface IfaceNotExtendingSpecification {
+    }
 
-	@Test
-	public void supportsInterfaceWithConjunctionSpec() throws Exception {
-		MethodParameter param = methodParameter("methodWithConjunction", IfaceWithConjunction.class);
+    @And({@Spec(path = "name", spec = Like.class)})
+    public interface IfaceWithAnd extends Specification<Object> {
+    }
 
-		assertTrue(resolver.supportsParameter(param));
-		assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithConjunction.class);
-	}
+    @Conjunction({
+            @Or({
+                    @Spec(path = "firstName", spec = Like.class),
+                    @Spec(path = "lastName", spec = Like.class)
+            }),
+            @Or({
+                    @Spec(path = "gender", spec = Equal.class),
+                    @Spec(path = "weight", spec = Equal.class)
+            })
+    })
+    public interface IfaceWithConjunction extends Specification<Object> {
+    }
 
-	@Test
-	public void supportsInterfaceWithDisjunctionSpec() throws Exception {
-		MethodParameter param = methodParameter("methodWithDisjunction", IfaceWithDisjunction.class);
+    @Disjunction({
+            @And({
+                    @Spec(path = "firstName", spec = Like.class),
+                    @Spec(path = "lastName", spec = Like.class)
+            }),
+            @And({
+                    @Spec(path = "gender", spec = Equal.class),
+                    @Spec(path = "weight", spec = Equal.class)
+            })
+    })
+    public interface IfaceWithDisjunction extends Specification<Object> {
+    }
 
-		assertTrue(resolver.supportsParameter(param));
-		assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithDisjunction.class);
-	}
+    @And({@Spec(path = "name", spec = Like.class)})
+    @Spec(path = "name", spec = Like.class)
+    public interface OverAnnotatedInterface extends Specification<Object> {
+    }
 
-	@Test
-	public void supportsIterfaceWithDisjunctionSpec() throws Exception {
-		MethodParameter param = methodParameter("methodWithOr", IfaceWithOr.class);
+    @Or({@Spec(path = "name", spec = Like.class)})
+    public interface IfaceWithOr extends Specification<Object> {
+    }
 
-		assertTrue(resolver.supportsParameter(param));
-		assertThat(resolver.resolveArgument(param, null, req, null)).isInstanceOf(IfaceWithOr.class);
-	}
+    @Spec(path = "deleted", spec = Equal.class)
+    public interface BaseInterface extends Specification<Customer> {
+    }
 
-	@Test
-	public void resolvedSpecHasWorkingToStringMethod() throws Exception {
-		MethodParameter param = methodParameter("methodWithOr", IfaceWithOr.class);
+    @Or({
+            @Spec(path = "name", spec = Like.class),
+            @Spec(path = "weight", spec = Equal.class)
+    })
+    public interface ChildInterface extends BaseInterface {
+    }
 
-		Object resolved = resolver.resolveArgument(param, null, req, null);
+    @Or({
+            @Spec(path = "name2", spec = Like.class),
+            @Spec(path = "weight2", spec = Equal.class)
+    })
+    public interface Chil2dInterface extends BaseInterface {
+    }
 
-		assertThat(resolved.toString()).startsWith("IfaceWithOr[");
-	}
+    @Or({
+            @Spec(path = "gold", spec = Equal.class),
+            @Spec(path = "status", spec = In.class)
+    })
+    public interface GrandChildInterface extends ChildInterface, Chil2dInterface {
+    }
 
-	@Test
-	public void createsConjunctionOutOfSpecsFromWholeInheritanceTree() throws Exception {
-		MethodParameter param = methodParameter("methodWithInheritanceTree", GrandChildInterface.class);
+    @Spec(path = "name", spec = Like.class)
+    public static class Clazz extends Like<Object> {
+        public Clazz(QueryContext queryCtx, String path, String[] args) {
+            super(queryCtx, path, args);
+        }
+    }
 
-		Specification<?> resolved = (Specification<?>) resolver.resolveArgument(param, null, req, null);
+    public static class TestController {
+        public void methodWithSimpleSpec(IfaceWithSimpleSpec arg) {
+        }
 
-		Collection<Specification<Object>> resolvedInnerSpecs = innerSpecs(resolved);
-		assertThat(resolvedInnerSpecs)
-				.hasSize(4)
-				.containsOnly(
-						new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "deleted", new String[]{ "false" }, converter)),
-						new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
-								new Like<>(queryCtx, "name", new String[]{ "Homer" }),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "weight", new String[]{ "121" }, converter))),
-						new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
-								new Like<>(queryCtx, "name2", new String[]{ "Max" }),
-								new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "weight2", new String[]{ "99" }, converter))),
-						new net.kaczmarzyk.spring.data.jpa.domain.Disjunction<>(
-								new EmptyResultOnTypeMismatch<>(new Equal<>(queryCtx, "gold", new String[]{ "true" }, converter)),
-								new EmptyResultOnTypeMismatch<>(new In<>(queryCtx, "status", new String[]{ "ACTIVE", "VERY_ACTIVE" }, converter))));
-	}
+        public void methodWithClass(Clazz arg) {
+        }
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        public void methodWithOverannotatedSpec(OverAnnotatedInterface arg) {
+        }
+
+        public void methodWithSpecWithoutAnnotations(IfaceWithoutAnnotations arg) {
+        }
+
+        public void methodWithNonSpec(IfaceNotExtendingSpecification arg) {
+        }
+
+        public void methodWithAnd(IfaceWithAnd arg) {
+        }
+
+        public void methodWithConjunction(IfaceWithConjunction arg) {
+        }
+
+        public void methodWithOr(IfaceWithOr arg) {
+        }
+
+        public void methodWithDisjunction(IfaceWithDisjunction arg) {
+        }
+
+        public void methodWithInheritanceTree(GrandChildInterface arg) {
+        }
+    }
 }

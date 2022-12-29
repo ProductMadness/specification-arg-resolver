@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,34 +38,34 @@ import static org.springframework.jmx.support.RegistrationPolicy.IGNORE_EXISTING
  */
 @Configuration
 @ComponentScan(basePackages = "net.kaczmarzyk", excludeFilters = {
-		@ComponentScan.Filter(type = ASSIGNABLE_TYPE, value = Application.class),
-		@ComponentScan.Filter(type = ASSIGNABLE_TYPE, value = ApplicationWithSARConfiguredWithApplicationContext.class)
+        @ComponentScan.Filter(type = ASSIGNABLE_TYPE, value = Application.class),
+        @ComponentScan.Filter(type = ASSIGNABLE_TYPE, value = ApplicationWithSARConfiguredWithApplicationContext.class)
 })
 @EnableJpaRepositories
 @EnableAutoConfiguration
 @EnableMBeanExport(registration = IGNORE_EXISTING)
 public class ApplicationWithConfiguredConversionService implements WebMvcConfigurer {
-	
-	@Autowired
-	ConversionService conversionService;
-	
-	@Override
-	public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
-		SpecificationArgumentResolver specificationArgumentResolver = new SpecificationArgumentResolver(conversionService);
-		argumentResolvers.add(specificationArgumentResolver);
-	}
-	
-	@Override
-	public void addFormatters(FormatterRegistry registry) {
-		registry.addConverter(new StringToAddressConverter());
-	}
-	
-	public static class StringToAddressConverter implements Converter<String, Address> {
-		@Override
-		public Address convert(String rawAddress) {
-			Address address = new Address();
-			address.setStreet(rawAddress);
-			return address;
-		}
-	}
+
+    @Autowired
+    ConversionService conversionService;
+
+    @Override
+    public void addArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+        SpecificationArgumentResolver specificationArgumentResolver = new SpecificationArgumentResolver(conversionService);
+        argumentResolvers.add(specificationArgumentResolver);
+    }
+
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        registry.addConverter(new StringToAddressConverter());
+    }
+
+    public static class StringToAddressConverter implements Converter<String, Address> {
+        @Override
+        public Address convert(String rawAddress) {
+            Address address = new Address();
+            address.setStreet(rawAddress);
+            return address;
+        }
+    }
 }

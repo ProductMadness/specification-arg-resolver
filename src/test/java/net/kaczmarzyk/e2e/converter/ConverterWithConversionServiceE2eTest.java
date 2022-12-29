@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,42 +34,42 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 public class ConverterWithConversionServiceE2eTest extends IntegrationTestBaseWithConfiguredConversionService {
-	
-	@Controller
-	@RequestMapping("/customers")
-	public static class CustomConverterSpecsController {
-		
-		@Autowired
-		CustomerRepository customerRepository;
-		
-		@RequestMapping(params = "address")
-		@ResponseBody
-		public Object findCustomersByAddressUsingCustomConverter(
-				@Spec(path = "address", params = "address", spec = Equal.class) Specification<Customer> spec) {
-			return customerRepository.findAll(spec);
-		}
-	}
-	
-	@BeforeEach
-	public void initializeTestData() {
-		customer("Homer", "Simpson")
-				.street("Evergreen Terrace").build(em);
-		
-		customer("Marge", "Simpson")
-				.street("Evergreen Terrace").build(em);
-		
-		customer("Moe", "Szyslak")
-				.street("Unknown").build(em);
-	}
-	
-	@Test
-	public void findsByAddressUsing() throws Exception {
-		mockMvc.perform(get("/customers")
-				.param("address", "Evergreen Terrace"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.[?(@.firstName=='Homer')]").exists())
-				.andExpect(jsonPath("$.[?(@.firstName=='Marge')]").exists())
-				.andExpect(jsonPath("$[2]").doesNotExist());
-	}
-	
+
+    @BeforeEach
+    public void initializeTestData() {
+        customer("Homer", "Simpson")
+                .street("Evergreen Terrace").build(em);
+
+        customer("Marge", "Simpson")
+                .street("Evergreen Terrace").build(em);
+
+        customer("Moe", "Szyslak")
+                .street("Unknown").build(em);
+    }
+
+    @Test
+    public void findsByAddressUsing() throws Exception {
+        mockMvc.perform(get("/customers")
+                        .param("address", "Evergreen Terrace"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$.[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[2]").doesNotExist());
+    }
+
+    @Controller
+    @RequestMapping("/customers")
+    public static class CustomConverterSpecsController {
+
+        @Autowired
+        CustomerRepository customerRepository;
+
+        @RequestMapping(params = "address")
+        @ResponseBody
+        public Object findCustomersByAddressUsingCustomConverter(
+                @Spec(path = "address", params = "address", spec = Equal.class) Specification<Customer> spec) {
+            return customerRepository.findAll(spec);
+        }
+    }
+
 }

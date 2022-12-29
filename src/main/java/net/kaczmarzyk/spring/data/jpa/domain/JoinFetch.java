@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,11 +15,16 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Fetch;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import net.kaczmarzyk.spring.data.jpa.utils.QueryContext;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.jpa.domain.Specification;
 
-import javax.persistence.criteria.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -37,94 +42,99 @@ import static net.kaczmarzyk.spring.data.jpa.utils.JoinPathUtils.pathToJoinSplit
  */
 public class JoinFetch<T> implements Specification<T> {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	private QueryContext context;
+    private final QueryContext context;
 
-	private List<String> pathsToFetch;
-	private String alias;
-	private JoinType joinType;
-	private boolean distinct;
+    private final List<String> pathsToFetch;
+    private final String alias;
+    private final JoinType joinType;
+    private final boolean distinct;
 
 
-	public JoinFetch(QueryContext queryContext, String[] pathsToFetch, JoinType joinType, boolean distinct) {
-		this(queryContext, pathsToFetch, "", joinType, distinct);
-	}
+    public JoinFetch(QueryContext queryContext, String[] pathsToFetch, JoinType joinType, boolean distinct) {
+        this(queryContext, pathsToFetch, "", joinType, distinct);
+    }
 
-	public JoinFetch(QueryContext queryContext, String[] pathsToFetch, String alias, JoinType joinType, boolean distinct) {
-		this.context = queryContext;
-		this.pathsToFetch = Arrays.asList(pathsToFetch);
-		this.alias = alias;
-		this.joinType = joinType;
-		this.distinct = distinct;
+    public JoinFetch(QueryContext queryContext, String[] pathsToFetch, String alias, JoinType joinType, boolean distinct) {
+        this.context = queryContext;
+        this.pathsToFetch = Arrays.asList(pathsToFetch);
+        this.alias = alias;
+        this.joinType = joinType;
+        this.distinct = distinct;
 
-		if (!alias.isEmpty() && pathsToFetch.length != 1) {
-			throw new IllegalArgumentException(
-					"Join fetch alias can be defined only for join fetch with a single path! " +
-					"Remove alias from the annotation or repeat @JoinFetch annotation for every path and use unique alias for each join."
-			);
-		}
-	}
+        if (!alias.isEmpty() && pathsToFetch.length != 1) {
+            throw new IllegalArgumentException(
+                    "Join fetch alias can be defined only for join fetch with a single path! "
+                            + "Remove alias from the annotation or repeat @JoinFetch annotation for every path and use unique alias for each join."
+            );
+        }
+    }
 
-	@Override
-	public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
-		query.distinct(distinct);
-		if (!Number.class.isAssignableFrom(query.getResultType())) { // do not join in count queries
-			if (pathsToFetch.size() == 1) {
-				String pathToFetch = pathsToFetch.get(0);
-				if (pathToJoinContainsAlias(pathToFetch)) {
-					String[] pathToJoinFetchOnSplittedByDot = pathToJoinSplittedByDot(pathToFetch);
-					String alias = pathToJoinFetchOnSplittedByDot[0];
-					String path = pathToJoinFetchOnSplittedByDot[1];
+    @Override
+    public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
+        query.distinct(distinct);
+        if (!Number.class.isAssignableFrom(query.getResultType())) { // do not join in count queries
+            if (pathsToFetch.size() == 1) {
+                String pathToFetch = pathsToFetch.get(0);
+                if (pathToJoinContainsAlias(pathToFetch)) {
+                    String[] pathToJoinFetchOnSplittedByDot = pathToJoinSplittedByDot(pathToFetch);
+                    String alias = pathToJoinFetchOnSplittedByDot[0];
+                    String path = pathToJoinFetchOnSplittedByDot[1];
 
-					Fetch<?, ?> evaluatedJoinFetchForGivenAlias = context.getEvaluatedJoinFetch(alias);
+                    Fetch<?, ?> evaluatedJoinFetchForGivenAlias = context.getEvaluatedJoinFetch(alias);
 
-					if(evaluatedJoinFetchForGivenAlias == null) {
-						throw new IllegalArgumentException(
-								"Join fetch definition with alias: '" + alias + "' not found! " +
-										"Make sure that join with the alias '" + alias +"' is defined before the join with path: '" + pathToFetch + "'"
-						);
-					}
+                    if (evaluatedJoinFetchForGivenAlias == null) {
+                        throw new IllegalArgumentException(
+                                "Join fetch definition with alias: '" + alias + "' not found! "
+                                        + "Make sure that join with the alias '" + alias + "' is defined before the join with path: '"
+                                        + pathToFetch + "'"
+                        );
+                    }
 
-					Fetch<?,?> joinFetch = evaluatedJoinFetchForGivenAlias.fetch(path, joinType);
-					if (StringUtils.isNotBlank(this.alias)) {
-						context.putEvaluatedJoinFetch(this.alias, joinFetch);
-					}
-				} else {
-					Fetch<Object, Object> evaluated = root.fetch(pathToFetch, joinType);
-					context.putEvaluatedJoinFetch(alias, evaluated);
-				}
-			} else {
-				for (String path : pathsToFetch) {
-					root.fetch(path, joinType);
-				}
-			}
-		}
-		return null;
-	}
+                    Fetch<?, ?> joinFetch = evaluatedJoinFetchForGivenAlias.fetch(path, joinType);
+                    if (StringUtils.isNotBlank(this.alias)) {
+                        context.putEvaluatedJoinFetch(this.alias, joinFetch);
+                    }
+                } else {
+                    Fetch<Object, Object> evaluated = root.fetch(pathToFetch, joinType);
+                    context.putEvaluatedJoinFetch(alias, evaluated);
+                }
+            } else {
+                for (String path : pathsToFetch) {
+                    root.fetch(path, joinType);
+                }
+            }
+        }
+        return null;
+    }
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		JoinFetch<?> joinFetch = (JoinFetch<?>) o;
-		return distinct == joinFetch.distinct &&
-				Objects.equals(context, joinFetch.context) &&
-				Objects.equals(pathsToFetch, joinFetch.pathsToFetch) &&
-				Objects.equals(alias, joinFetch.alias) &&
-				joinType == joinFetch.joinType;
-	}
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        JoinFetch<?> joinFetch = (JoinFetch<?>) o;
+        return distinct == joinFetch.distinct
+                && Objects.equals(context, joinFetch.context)
+                && Objects.equals(pathsToFetch, joinFetch.pathsToFetch)
+                && Objects.equals(alias, joinFetch.alias)
+                && joinType == joinFetch.joinType;
+    }
 
-	@Override
-	public int hashCode() {
-		return Objects.hash(context, pathsToFetch, alias, joinType, distinct);
-	}
+    @Override
+    public int hashCode() {
+        return Objects.hash(context, pathsToFetch, alias, joinType, distinct);
+    }
 
-	@Override
-	public String toString() {
-		return "JoinFetch[" +
-				"pathsToFetch=" + pathsToFetch +
-				", joinType=" + joinType +
-				']';
-	}
+    @Override
+    public String toString() {
+        return "JoinFetch["
+                + "pathsToFetch=" + pathsToFetch
+                + ", joinType=" + joinType
+                + ']';
+    }
 }

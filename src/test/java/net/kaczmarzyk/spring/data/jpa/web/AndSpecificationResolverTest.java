@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,57 +34,57 @@ import static org.mockito.Mockito.when;
  */
 public class AndSpecificationResolverTest extends ResolverTestBase {
 
-	AndSpecificationResolver resolver = new AndSpecificationResolver(new SimpleSpecificationResolver());
+    AndSpecificationResolver resolver = new AndSpecificationResolver(new SimpleSpecificationResolver());
 
-	@Test
-	public void resolvesWrapperOfInnerSpecs() {
-		MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
-		NativeWebRequest req = mock(NativeWebRequest.class);
-		when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
-		when(req.getParameterValues("path2")).thenReturn(new String[]{"value2"});
+    @Test
+    public void resolvesWrapperOfInnerSpecs() {
+        MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
+        NativeWebRequest req = mock(NativeWebRequest.class);
+        when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
+        when(req.getParameterValues("path2")).thenReturn(new String[]{"value2"});
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
 
-		assertThat(result).isEqualTo(new Conjunction<>(new Like<>(ctx.queryContext(), "path1", "value1"),
-				new Like<>(ctx.queryContext(), "path2", "value2")));
-	}
+        assertThat(result).isEqualTo(new Conjunction<>(new Like<>(ctx.queryContext(), "path1", "value1"),
+                new Like<>(ctx.queryContext(), "path2", "value2")));
+    }
 
-	@Test
-	public void skipsMissingInnerSpec() {
-		MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
-		NativeWebRequest req = mock(NativeWebRequest.class);
-		when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
+    @Test
+    public void skipsMissingInnerSpec() {
+        MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
+        NativeWebRequest req = mock(NativeWebRequest.class);
+        when(req.getParameterValues("path1")).thenReturn(new String[]{"value1"});
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
 
-		assertThat(result).isEqualTo(new Conjunction<>(new Like<>(ctx.queryContext(), "path1", "value1")));
-	}
+        assertThat(result).isEqualTo(new Conjunction<>(new Like<>(ctx.queryContext(), "path1", "value1")));
+    }
 
-	@Test
-	public void returnsNullIfNoInnerSpecCanBeResolved() {
-		MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
-		NativeWebRequest req = mock(NativeWebRequest.class);
+    @Test
+    public void returnsNullIfNoInnerSpecCanBeResolved() {
+        MethodParameter param = MethodParameter.forExecutable(testMethod("testMethod"), 0);
+        NativeWebRequest req = mock(NativeWebRequest.class);
 
-		WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
+        WebRequestProcessingContext ctx = new WebRequestProcessingContext(param, req);
 
-		Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
+        Specification<?> result = resolver.buildSpecification(ctx, param.getParameterAnnotation(And.class));
 
-		assertThat(result).isNull();
-	}
+        assertThat(result).isNull();
+    }
 
-	public static class TestController {
+    @Override
+    protected Class<?> controllerClass() {
+        return TestController.class;
+    }
 
-		public void testMethod(
-				@And({@Spec(path = "path1", spec = Like.class), @Spec(path = "path2", spec = Like.class)}) Specification<Object> spec) {
-		}
-	}
+    public static class TestController {
 
-	@Override
-	protected Class<?> controllerClass() {
-		return TestController.class;
-	}
+        public void testMethod(
+                @And({@Spec(path = "path1", spec = Like.class), @Spec(path = "path2", spec = Like.class)}) Specification<Object> spec) {
+        }
+    }
 }

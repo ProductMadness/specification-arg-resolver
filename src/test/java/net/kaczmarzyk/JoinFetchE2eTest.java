@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,81 +35,79 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 public class JoinFetchE2eTest extends E2eTestBase {
 
-	@RestController
-	public static class TestController {
+    @Test
+    public void createsDistinctQueryByDefault() throws Exception {
+        mockMvc.perform(get("/join-fetch/customers")
+                        .param("firstName", "Homer")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-		@Autowired
-		private CustomerRepository customerRepository;
+    @Test
+    public void createsNotDistinctQueryIfDistinctAttributeIsSetToFalse() throws Exception {
+        mockMvc.perform(get("/join-fetch/customers/not-distinct")
+                        .param("firstName", "Homer")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
 
-		@RequestMapping("/join-fetch/customers")
-		public Object findByFirstName(
+    @Test
+    public void findsByLastNameWithPagination() throws Exception {
+        mockMvc.perform(get("/join-fetch-pageable/customers")
+                        .param("lastName", "Simpson")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .param("sort", "id")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$.totalPages").value(5))
+                .andExpect(jsonPath("$.totalElements").value(5))
+                .andExpect(jsonPath("$.size").value(1));
+    }
 
-				@JoinFetch(paths = "badges")
-				@Spec(path = "firstName", spec = Equal.class) Specification<Customer> spec) {
+    @RestController
+    public static class TestController {
 
-			return customerRepository.findAll(spec);
-		}
-		
-		@RequestMapping("/join-fetch/customers/not-distinct")
-		public Object findByFirstNameAndJoinFetchDistinctSetToFalse(
-				
-				@JoinFetch(paths = "badges", distinct = false)
-				@Spec(path = "firstName", spec = Equal.class) Specification<Customer> spec) {
-			
-			return customerRepository.findAll(spec);
-		}
+        @Autowired
+        private CustomerRepository customerRepository;
 
-		@RequestMapping("/join-fetch-pageable/customers")
-		public Object findByLastNameWithPagination(
+        @RequestMapping("/join-fetch/customers")
+        public Object findByFirstName(
 
-				@JoinFetch(paths = "badges")
-				@Spec(path = "lastName", spec = Equal.class) Specification<Customer> spec,
-				Pageable pageable) {
+                @JoinFetch(paths = "badges")
+                @Spec(path = "firstName", spec = Equal.class) Specification<Customer> spec) {
 
-			return customerRepository.findAll(spec, pageable);
-		}
+            return customerRepository.findAll(spec);
+        }
 
-	}
+        @RequestMapping("/join-fetch/customers/not-distinct")
+        public Object findByFirstNameAndJoinFetchDistinctSetToFalse(
 
-	@Test
-	public void createsDistinctQueryByDefault() throws Exception {
-		mockMvc.perform(get("/join-fetch/customers")
-				.param("firstName", "Homer")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$[1]").doesNotExist());
-	}
-	
-	@Test
-	public void createsNotDistinctQueryIfDistinctAttributeIsSetToFalse() throws Exception {
-		mockMvc.perform(get("/join-fetch/customers/not-distinct")
-				.param("firstName", "Homer")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Homer"))
-				.andExpect(jsonPath("$[1].firstName").value("Homer"))
-				.andExpect(jsonPath("$[2].firstName").value("Homer"))
-				.andExpect(jsonPath("$[3]").doesNotExist());
-	}
+                @JoinFetch(paths = "badges", distinct = false)
+                @Spec(path = "firstName", spec = Equal.class) Specification<Customer> spec) {
 
-	@Test
-	public void findsByLastNameWithPagination() throws Exception {
-		mockMvc.perform(get("/join-fetch-pageable/customers")
-				.param("lastName", "Simpson")
-				.param("page", "0")
-				.param("size", "1")
-				.param("sort", "id")
-				.accept(MediaType.APPLICATION_JSON))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.content").isArray())
-			.andExpect(jsonPath("$.content", hasSize(1)))
-			.andExpect(jsonPath("$.content[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$.totalPages").value(5))
-			.andExpect(jsonPath("$.totalElements").value(5))
-			.andExpect(jsonPath("$.size").value(1));
-	}
+            return customerRepository.findAll(spec);
+        }
+
+        @RequestMapping("/join-fetch-pageable/customers")
+        public Object findByLastNameWithPagination(
+
+                @JoinFetch(paths = "badges")
+                @Spec(path = "lastName", spec = Equal.class) Specification<Customer> spec,
+                Pageable pageable) {
+
+            return customerRepository.findAll(spec, pageable);
+        }
+
+    }
 
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,6 +15,7 @@
  */
 package net.kaczmarzyk;
 
+import jakarta.persistence.criteria.JoinType;
 import net.kaczmarzyk.spring.data.jpa.Customer;
 import net.kaczmarzyk.spring.data.jpa.CustomerRepository;
 import net.kaczmarzyk.spring.data.jpa.IntegrationTestBase;
@@ -36,7 +37,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.persistence.criteria.JoinType;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,307 +54,307 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 public class MultiLevelFetchJoinE2eTest extends IntegrationTestBase {
 
-	@RestController
-	@RequestMapping("/multilevel-join-fetch")
-	public static class MultiLevelJoinFetchController {
+    @Autowired
+    ItemTagRepository itemTagRepository;
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @BeforeEach
+    public void initializeTestData() {
+        doInNewTransaction(() -> {
+            ItemTag homerApprovedTag = itemTag("#homerApproved").build(em);
+            ItemTag snacksTag = itemTag("#snacks").build(em);
+            ItemTag fruitsTag = itemTag("#fruits").build(em);
 
-		@RequestMapping(value = "/findAll")
-		@PostMapping
-		public Object findAllCustomers(
-				@JoinFetch(paths = "orders", alias = "o")
-				@JoinFetch(paths = "o.tags") Specification<Customer> spec) {
-			return customerRepo.findAll(spec, Sort.by("id")).stream()
-					.map(this::mapToCustomerDto)
-					.collect(toList());
-		}
+            customer("Homer", "Simpson")
+                    .orders(
+                            order("Duff Beer").withTags(homerApprovedTag, snacksTag),
+                            order("Donuts").withTags(homerApprovedTag, snacksTag)).build(em);
 
-		@RequestMapping(value = "/findAllWthUsingInnerFetchJoins")
-		@PostMapping
-		public Object findAllCustomersUsingInnerFetchJoins(
-				@JoinFetch(paths = "orders", alias = "o", joinType = JoinType.INNER)
-				@JoinFetch(paths = "o.tags", joinType = JoinType.INNER) Specification<Customer> spec) {
-			return customerRepo.findAll(spec, Sort.by("id")).stream()
-					.map(this::mapToCustomerDto)
-					.collect(toList());
-		}
+            customer("Marge", "Simpson")
+                    .orders(
+                            order("Apple").withTags(fruitsTag)).build(em);
 
-		@RequestMapping(value = "/findAllWithoutFetchJoins")
-		@PostMapping
-		public Object findAllWithoutFetchJoins(
-				@Spec(params = "ignoredParam", path = "notExistingAttribute", spec = Equal.class) Specification<Customer> spec) {
-			return customerRepo.findAll(spec).stream()
-					.map(this::mapToCustomerDto)
-					.collect(toList());
-		}
+            customer("Bart", "Simpson")
+                    .orders(
+                            order("Pizza").withTags(snacksTag)).build(em);
 
-		@RequestMapping(value = "/findAllCustomersFetchOrdersWithTagsAndNotes")
-		@PostMapping
-		public Object findAllCustomersFetchOrdersWithTagsAndNotes(
-				@JoinFetch(paths = "orders", alias = "o")
-				@JoinFetch(paths = "o.tags")
-				@JoinFetch(paths = "o.note")
-						Specification<Customer> spec) {
-			return customerRepo.findAll(spec, Sort.by("id")).stream()
-					.map(this::mapToCustomerWithOrdersWithTagsAndNotes)
-					.collect(toList());
-		}
+            customer("Lisa", "Simpson")
+                    .orders(
+                            order("Jazz music disc")).build(em);
 
-		@RequestMapping(value = "/findAllCustomersFetchOrdersWithTagsAndNotes_withPagination")
-		@PostMapping
-		public Object findAllCustomersFetchOrdersWithTagsAndNotes_withPagination(
-				@JoinFetch(paths = "orders", alias = "o")
-				@JoinFetch(paths = "o.tags")
-				@JoinFetch(paths = "o.note") Specification<Customer> spec,
-				Pageable pageable) {
-			return customerRepo.findAll(spec, pageable);
-		}
+            customer("Maggie", "Simpson").build(em);
+        });
+    }
 
-		private CustomerDto mapToCustomerDto(Customer customer) {
-			String tagOfFirstOrderedItem = customer.getOrders().stream()
-					.flatMap(order -> order.getTags().stream())
-					.map(ItemTag::getName)
-					.findFirst().orElse(null);
+    @AfterEach
+    public void cleanupDb() {
+        doInNewTransaction(() -> {
+            customerRepo.deleteAll();
+            itemTagRepository.deleteAll();
+        });
+    }
 
-			return new CustomerDto(
-					customer.getFirstName(),
-					tagOfFirstOrderedItem
-			);
-		}
+    @Test
+    public void shouldFindCustomersUsingLeftFetchJoins() throws Exception {
+        HibernateStatementInterceptor.clearInterceptedStatements();
 
-		private CustomerWithOrdersWithTagsAndNotes mapToCustomerWithOrdersWithTagsAndNotes(Customer customer) {
-			return new CustomerWithOrdersWithTagsAndNotes(
-					customer.getFirstName(),
-					customer.getOrders().stream().map(order -> new OrdersWithTagsAndNotes(
-							order.getItemName(),
-							order.getTags().stream().map(ItemTag::getName).sorted(StringUtils::compare).collect(Collectors.joining(",")),
-							order.getNote().getTitle()
-					)).sorted((o1, o2) -> StringUtils.compare(o1.itemName, o2.itemName)).collect(Collectors.toList())
-			);
-		}
+        mockMvc.perform(post("/multilevel-join-fetch/findAll")
+                        .param("tag", "#snacks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1].firstName").value("Marge"))
+                .andExpect(jsonPath("$[2].firstName").value("Bart"))
+                .andExpect(jsonPath("$[3].firstName").value("Lisa"))
+                .andExpect(jsonPath("$[4].firstName").value("Maggie"))
+                .andExpect(jsonPath("$[5]").doesNotExist());
 
-		class CustomerDto {
-			private String firstName;
-			private String tagOfFirstCustomerItem;
+        assertThatInterceptedStatements()
+                .hasSelects(1);
+    }
 
-			public CustomerDto(String firstName, String tagOfFirstCustomerItem) {
-				this.firstName = firstName;
-				this.tagOfFirstCustomerItem = tagOfFirstCustomerItem;
-			}
+    @Test
+    public void shouldFindCustomersUsingInnerFetchJoins() throws Exception {
+        HibernateStatementInterceptor.clearInterceptedStatements();
 
-			public String getFirstName() {
-				return firstName;
-			}
+        mockMvc.perform(post("/multilevel-join-fetch/findAllWthUsingInnerFetchJoins")
+                        .param("tag", "#snacks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1].firstName").value("Marge"))
+                .andExpect(jsonPath("$[2].firstName").value("Bart"))
+                .andExpect(jsonPath("$[3]").doesNotExist());
 
-			public String getTagOfFirstCustomerItem() {
-				return tagOfFirstCustomerItem;
-			}
-		}
+        assertThatInterceptedStatements()
+                .hasSelects(1);
+    }
 
-		class OrdersWithTagsAndNotes {
-			private String itemName;
-			private String tags;
-			private String notes;
+    @Test
+    public void shouldFindAllCustomersWithoutUsingJoinFetches() throws Exception {
+        HibernateStatementInterceptor.clearInterceptedStatements();
 
-			public OrdersWithTagsAndNotes(String itemName, String tags, String notes) {
-				this.itemName = itemName;
-				this.tags = tags;
-				this.notes = notes;
-			}
+        mockMvc.perform(post("/multilevel-join-fetch/findAllWithoutFetchJoins")
+                        .param("tag", "#snacks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[1].firstName").value("Marge"))
+                .andExpect(jsonPath("$[2].firstName").value("Bart"))
+                .andExpect(jsonPath("$[3].firstName").value("Lisa"))
+                .andExpect(jsonPath("$[4].firstName").value("Maggie"))
+                .andExpect(jsonPath("$[5]").doesNotExist());
 
-			public String getItemName() {
-				return itemName;
-			}
+        assertThatInterceptedStatements()
+                .hasSelects(10)
+                .hasSelectsFromSingleTableWithWhereClause(9);
+    }
 
-			public String getTags() {
-				return tags;
-			}
+    @Test
+    public void shouldFindCustomersWithFetchedOrderWithTagsAndNotes() throws Exception {
+        HibernateStatementInterceptor.clearInterceptedStatements();
 
-			public String getNotes() {
-				return notes;
-			}
-		}
+        mockMvc.perform(post("/multilevel-join-fetch/findAllCustomersFetchOrdersWithTagsAndNotes")
+                        .param("tag", "#snacks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$[0].orders").isArray())
 
-		class CustomerWithOrdersWithTagsAndNotes {
-			private String firstName;
-			private List<OrdersWithTagsAndNotes> orders;
+                .andExpect(jsonPath("$[0].orders[0].itemName").value("Donuts"))
+                .andExpect(jsonPath("$[0].orders[0].tags").value("#homerApproved,#snacks"))
+                .andExpect(jsonPath("$[0].orders[0].notes").value("NoteDonuts"))
 
-			public CustomerWithOrdersWithTagsAndNotes(String firstName, List<OrdersWithTagsAndNotes> orders) {
-				this.firstName = firstName;
-				this.orders = orders;
-			}
+                .andExpect(jsonPath("$[0].orders[1].itemName").value("Duff Beer"))
+                .andExpect(jsonPath("$[0].orders[1].tags").value("#homerApproved,#snacks"))
+                .andExpect(jsonPath("$[0].orders[1].notes").value("NoteDuff Beer"))
 
-			public String getFirstName() {
-				return firstName;
-			}
+                .andExpect(jsonPath("$[1].firstName").value("Marge"))
+                .andExpect(jsonPath("$[1].orders").isArray())
+                .andExpect(jsonPath("$[1].orders[0].itemName").value("Apple"))
+                .andExpect(jsonPath("$[1].orders[0].tags").value("#fruits"))
+                .andExpect(jsonPath("$[1].orders[0].notes").value("NoteApple"))
 
-			public List<OrdersWithTagsAndNotes> getOrders() {
-				return orders;
-			}
-		}
-	}
+                .andExpect(jsonPath("$[2].firstName").value("Bart"))
+                .andExpect(jsonPath("$[2].orders").isArray())
+                .andExpect(jsonPath("$[2].orders[0].itemName").value("Pizza"))
+                .andExpect(jsonPath("$[2].orders[0].tags").value("#snacks"))
+                .andExpect(jsonPath("$[2].orders[0].notes").value("NotePizza"))
 
-	@BeforeEach
-	public void initializeTestData() {
-		doInNewTransaction(() -> {
-			ItemTag homerApprovedTag = itemTag("#homerApproved").build(em);
-			ItemTag snacksTag = itemTag("#snacks").build(em);
-			ItemTag fruitsTag = itemTag("#fruits").build(em);
+                .andExpect(jsonPath("$[3].firstName").value("Lisa"))
+                .andExpect(jsonPath("$[3].orders").isArray())
+                .andExpect(jsonPath("$[3].orders[0].itemName").value("Jazz music disc"))
+                .andExpect(jsonPath("$[3].orders[0].tags").value(""))
+                .andExpect(jsonPath("$[3].orders[0].notes").value("NoteJazz music disc"))
 
-			customer("Homer", "Simpson")
-					.orders(
-							order("Duff Beer").withTags(homerApprovedTag, snacksTag),
-							order("Donuts").withTags(homerApprovedTag, snacksTag)).build(em);
+                .andExpect(jsonPath("$[4].firstName").value("Maggie"))
 
-			customer("Marge", "Simpson")
-					.orders(
-							order("Apple").withTags(fruitsTag)).build(em);
+                .andExpect(jsonPath("$[5]").doesNotExist());
 
-			customer("Bart", "Simpson")
-					.orders(
-							order("Pizza").withTags(snacksTag)).build(em);
+        assertThatInterceptedStatements()
+                .hasSelects(1);
+    }
 
-			customer("Lisa", "Simpson")
-					.orders(
-							order("Jazz music disc")).build(em);
+    @Test
+    public void shouldFindCustomersWithFetchedOrderWithTagsAndNotes_withPagination() throws Exception {
+        mockMvc.perform(post("/multilevel-join-fetch/findAllCustomersFetchOrdersWithTagsAndNotes_withPagination")
+                        .param("tag", "#snacks")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .param("sort", "id"))
+                .andExpect(status().isOk())
 
-			customer("Maggie", "Simpson").build(em);
-		});
-	}
+                .andExpect(jsonPath("$.pageable").exists())
+                .andExpect(jsonPath("$.pageable.sort.sorted").value("true"))
+                .andExpect(jsonPath("$.pageable.pageNumber").value("0"))
+                .andExpect(jsonPath("$.pageable.pageSize").value("1"))
 
-	@Autowired
-	ItemTagRepository itemTagRepository;
+                .andExpect(jsonPath("$.content[0].firstName").value("Homer"))
+                .andExpect(jsonPath("$.content[0].orders").isArray())
 
-	@AfterEach
-	public void cleanupDb() {
-		doInNewTransaction(() -> {
-			customerRepo.deleteAll();
-			itemTagRepository.deleteAll();
-		});
-	}
+                .andExpect(jsonPath("$.content[1]").doesNotExist());
+    }
 
-	@Test
-	public void shouldFindCustomersUsingLeftFetchJoins() throws Exception {
-		HibernateStatementInterceptor.clearInterceptedStatements();
+    @RestController
+    @RequestMapping("/multilevel-join-fetch")
+    public static class MultiLevelJoinFetchController {
 
-		mockMvc.perform(post("/multilevel-join-fetch/findAll")
-				.param("tag", "#snacks"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$[1].firstName").value("Marge"))
-			.andExpect(jsonPath("$[2].firstName").value("Bart"))
-			.andExpect(jsonPath("$[3].firstName").value("Lisa"))
-			.andExpect(jsonPath("$[4].firstName").value("Maggie"))
-			.andExpect(jsonPath("$[5]").doesNotExist());
+        @Autowired
+        CustomerRepository customerRepo;
 
-		assertThatInterceptedStatements()
-				.hasSelects(1);
-	}
+        @RequestMapping(value = "/findAll")
+        @PostMapping
+        public Object findAllCustomers(
+                @JoinFetch(paths = "orders", alias = "o")
+                @JoinFetch(paths = "o.tags") Specification<Customer> spec) {
+            return customerRepo.findAll(spec, Sort.by("id")).stream()
+                    .map(this::mapToCustomerDto)
+                    .collect(toList());
+        }
 
-	@Test
-	public void shouldFindCustomersUsingInnerFetchJoins() throws Exception {
-		HibernateStatementInterceptor.clearInterceptedStatements();
+        @RequestMapping(value = "/findAllWthUsingInnerFetchJoins")
+        @PostMapping
+        public Object findAllCustomersUsingInnerFetchJoins(
+                @JoinFetch(paths = "orders", alias = "o", joinType = JoinType.INNER)
+                @JoinFetch(paths = "o.tags", joinType = JoinType.INNER) Specification<Customer> spec) {
+            return customerRepo.findAll(spec, Sort.by("id")).stream()
+                    .map(this::mapToCustomerDto)
+                    .collect(toList());
+        }
 
-		mockMvc.perform(post("/multilevel-join-fetch/findAllWthUsingInnerFetchJoins")
-				.param("tag", "#snacks"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$[1].firstName").value("Marge"))
-			.andExpect(jsonPath("$[2].firstName").value("Bart"))
-			.andExpect(jsonPath("$[3]").doesNotExist());
+        @RequestMapping(value = "/findAllWithoutFetchJoins")
+        @PostMapping
+        public Object findAllWithoutFetchJoins(
+                @Spec(params = "ignoredParam", path = "notExistingAttribute", spec = Equal.class) Specification<Customer> spec) {
+            return customerRepo.findAll(spec).stream()
+                    .map(this::mapToCustomerDto)
+                    .collect(toList());
+        }
 
-		assertThatInterceptedStatements()
-				.hasSelects(1);
-	}
+        @RequestMapping(value = "/findAllCustomersFetchOrdersWithTagsAndNotes")
+        @PostMapping
+        public Object findAllCustomersFetchOrdersWithTagsAndNotes(
+                @JoinFetch(paths = "orders", alias = "o")
+                @JoinFetch(paths = "o.tags")
+                @JoinFetch(paths = "o.note")
+                Specification<Customer> spec) {
+            return customerRepo.findAll(spec, Sort.by("id")).stream()
+                    .map(this::mapToCustomerWithOrdersWithTagsAndNotes)
+                    .collect(toList());
+        }
 
-	@Test
-	public void shouldFindAllCustomersWithoutUsingJoinFetches() throws Exception {
-		HibernateStatementInterceptor.clearInterceptedStatements();
+        @RequestMapping(value = "/findAllCustomersFetchOrdersWithTagsAndNotes_withPagination")
+        @PostMapping
+        public Object findAllCustomersFetchOrdersWithTagsAndNotes_withPagination(
+                @JoinFetch(paths = "orders", alias = "o")
+                @JoinFetch(paths = "o.tags")
+                @JoinFetch(paths = "o.note") Specification<Customer> spec,
+                Pageable pageable) {
+            return customerRepo.findAll(spec, pageable);
+        }
 
-		mockMvc.perform(post("/multilevel-join-fetch/findAllWithoutFetchJoins")
-				.param("tag", "#snacks"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$").isArray())
-			.andExpect(jsonPath("$[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$[1].firstName").value("Marge"))
-			.andExpect(jsonPath("$[2].firstName").value("Bart"))
-			.andExpect(jsonPath("$[3].firstName").value("Lisa"))
-			.andExpect(jsonPath("$[4].firstName").value("Maggie"))
-			.andExpect(jsonPath("$[5]").doesNotExist());
+        private CustomerDto mapToCustomerDto(Customer customer) {
+            String tagOfFirstOrderedItem = customer.getOrders().stream()
+                    .flatMap(order -> order.getTags().stream())
+                    .map(ItemTag::getName)
+                    .findFirst().orElse(null);
 
-		assertThatInterceptedStatements()
-				.hasSelects(10)
-				.hasSelectsFromSingleTableWithWhereClause(9);
-	}
+            return new CustomerDto(
+                    customer.getFirstName(),
+                    tagOfFirstOrderedItem
+            );
+        }
 
-	@Test
-	public void shouldFindCustomersWithFetchedOrderWithTagsAndNotes() throws Exception {
-		HibernateStatementInterceptor.clearInterceptedStatements();
+        private CustomerWithOrdersWithTagsAndNotes mapToCustomerWithOrdersWithTagsAndNotes(Customer customer) {
+            return new CustomerWithOrdersWithTagsAndNotes(
+                    customer.getFirstName(),
+                    customer.getOrders().stream().map(order -> new OrdersWithTagsAndNotes(
+                            order.getItemName(),
+                            order.getTags().stream().map(ItemTag::getName).sorted(StringUtils::compare).collect(Collectors.joining(",")),
+                            order.getNote().getTitle()
+                    )).sorted((o1, o2) -> StringUtils.compare(o1.itemName, o2.itemName)).collect(Collectors.toList())
+            );
+        }
 
-		mockMvc.perform(post("/multilevel-join-fetch/findAllCustomersFetchOrdersWithTagsAndNotes")
-				.param("tag", "#snacks"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Homer"))
-				.andExpect(jsonPath("$[0].orders").isArray())
+        class CustomerDto {
+            private final String firstName;
+            private final String tagOfFirstCustomerItem;
 
-				.andExpect(jsonPath("$[0].orders[0].itemName").value("Donuts"))
-				.andExpect(jsonPath("$[0].orders[0].tags").value("#homerApproved,#snacks"))
-				.andExpect(jsonPath("$[0].orders[0].notes").value("NoteDonuts"))
+            public CustomerDto(String firstName, String tagOfFirstCustomerItem) {
+                this.firstName = firstName;
+                this.tagOfFirstCustomerItem = tagOfFirstCustomerItem;
+            }
 
-				.andExpect(jsonPath("$[0].orders[1].itemName").value("Duff Beer"))
-				.andExpect(jsonPath("$[0].orders[1].tags").value("#homerApproved,#snacks"))
-				.andExpect(jsonPath("$[0].orders[1].notes").value("NoteDuff Beer"))
+            public String getFirstName() {
+                return firstName;
+            }
 
-				.andExpect(jsonPath("$[1].firstName").value("Marge"))
-				.andExpect(jsonPath("$[1].orders").isArray())
-				.andExpect(jsonPath("$[1].orders[0].itemName").value("Apple"))
-				.andExpect(jsonPath("$[1].orders[0].tags").value("#fruits"))
-				.andExpect(jsonPath("$[1].orders[0].notes").value("NoteApple"))
+            public String getTagOfFirstCustomerItem() {
+                return tagOfFirstCustomerItem;
+            }
+        }
 
-				.andExpect(jsonPath("$[2].firstName").value("Bart"))
-				.andExpect(jsonPath("$[2].orders").isArray())
-				.andExpect(jsonPath("$[2].orders[0].itemName").value("Pizza"))
-				.andExpect(jsonPath("$[2].orders[0].tags").value("#snacks"))
-				.andExpect(jsonPath("$[2].orders[0].notes").value("NotePizza"))
+        class OrdersWithTagsAndNotes {
+            private final String itemName;
+            private final String tags;
+            private final String notes;
 
-				.andExpect(jsonPath("$[3].firstName").value("Lisa"))
-				.andExpect(jsonPath("$[3].orders").isArray())
-				.andExpect(jsonPath("$[3].orders[0].itemName").value("Jazz music disc"))
-				.andExpect(jsonPath("$[3].orders[0].tags").value(""))
-				.andExpect(jsonPath("$[3].orders[0].notes").value("NoteJazz music disc"))
+            public OrdersWithTagsAndNotes(String itemName, String tags, String notes) {
+                this.itemName = itemName;
+                this.tags = tags;
+                this.notes = notes;
+            }
 
-				.andExpect(jsonPath("$[4].firstName").value("Maggie"))
+            public String getItemName() {
+                return itemName;
+            }
 
-				.andExpect(jsonPath("$[5]").doesNotExist());
+            public String getTags() {
+                return tags;
+            }
 
-		assertThatInterceptedStatements()
-				.hasSelects(1);
-	}
+            public String getNotes() {
+                return notes;
+            }
+        }
 
-	@Test
-	public void shouldFindCustomersWithFetchedOrderWithTagsAndNotes_withPagination() throws Exception {
-		mockMvc.perform(post("/multilevel-join-fetch/findAllCustomersFetchOrdersWithTagsAndNotes_withPagination")
-				.param("tag", "#snacks")
-				.param("page", "0")
-				.param("size", "1")
-				.param("sort", "id"))
-			.andExpect(status().isOk())
+        class CustomerWithOrdersWithTagsAndNotes {
+            private final String firstName;
+            private final List<OrdersWithTagsAndNotes> orders;
 
-			.andExpect(jsonPath("$.pageable").exists())
-			.andExpect(jsonPath("$.pageable.sort.sorted").value("true"))
-			.andExpect(jsonPath("$.pageable.pageNumber").value("0"))
-			.andExpect(jsonPath("$.pageable.pageSize").value("1"))
+            public CustomerWithOrdersWithTagsAndNotes(String firstName, List<OrdersWithTagsAndNotes> orders) {
+                this.firstName = firstName;
+                this.orders = orders;
+            }
 
-			.andExpect(jsonPath("$.content[0].firstName").value("Homer"))
-			.andExpect(jsonPath("$.content[0].orders").isArray())
+            public String getFirstName() {
+                return firstName;
+            }
 
-			.andExpect(jsonPath("$.content[1]").doesNotExist());
-	}
+            public List<OrdersWithTagsAndNotes> getOrders() {
+                return orders;
+            }
+        }
+    }
 
 
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,38 +15,37 @@
  */
 package net.kaczmarzyk.spring.data.jpa.domain;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import org.springframework.data.jpa.domain.Specification;
+
 import java.util.Arrays;
 import java.util.Collection;
-
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-
-import org.springframework.data.jpa.domain.Specification;
 
 
 /**
  * Helper for easier joining lists of specs with {@code OR} operator
- * 
+ *
  * @author Tomasz Kaczmarzyk
  */
 public class Disjunction<T> implements Specification<T> {
 
-	private static final long serialVersionUID = 1L;
-	
-	private Collection<Specification<T>> innerSpecs;
-    
-    
+    private static final long serialVersionUID = 1L;
+
+    private final Collection<Specification<T>> innerSpecs;
+
+
     @SafeVarargs
     public Disjunction(Specification<T>... specs) {
         this(Arrays.asList(specs));
     }
-    
+
     public Disjunction(Collection<Specification<T>> innerSpecs) {
         this.innerSpecs = innerSpecs;
     }
-    
+
     @Override
     public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
         Specification<T> combinedSpecs = null;
@@ -70,23 +69,25 @@ public class Disjunction<T> implements Specification<T> {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         Disjunction<?> other = (Disjunction<?>) obj;
         if (innerSpecs == null) {
-            if (other.innerSpecs != null)
-                return false;
-        } else if (!innerSpecs.equals(other.innerSpecs))
-            return false;
-        return true;
+            return other.innerSpecs == null;
+        } else {
+            return innerSpecs.equals(other.innerSpecs);
+        }
     }
 
-	@Override
-	public String toString() {
-		return "Disjunction [innerSpecs=" + innerSpecs + "]";
-	}
+    @Override
+    public String toString() {
+        return "Disjunction [innerSpecs=" + innerSpecs + "]";
+    }
 }

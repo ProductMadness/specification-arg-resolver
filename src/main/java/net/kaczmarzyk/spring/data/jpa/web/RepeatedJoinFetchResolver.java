@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,21 +29,21 @@ import java.util.Collection;
  */
 public class RepeatedJoinFetchResolver implements SpecificationResolver<RepeatedJoinFetch> {
 
-	private JoinFetchSpecificationResolver joinFetchSpecificationResolver = new JoinFetchSpecificationResolver();
+    private final JoinFetchSpecificationResolver joinFetchSpecificationResolver = new JoinFetchSpecificationResolver();
 
-	@Override
-	public Class<? extends Annotation> getSupportedSpecificationDefinition() {
-		return RepeatedJoinFetch.class;
-	}
+    @Override
+    public Class<? extends Annotation> getSupportedSpecificationDefinition() {
+        return RepeatedJoinFetch.class;
+    }
 
-	@Override
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, RepeatedJoinFetch def) {
-		Collection<Specification<Object>> joins = new ArrayList<>();
+    @Override
+    public Specification<Object> buildSpecification(WebRequestProcessingContext context, RepeatedJoinFetch def) {
+        Collection<Specification<Object>> joins = new ArrayList<>();
 
-		for (JoinFetch fetchDef : def.value()) {
-			joins.add(joinFetchSpecificationResolver.buildSpecification(context, fetchDef));
-		}
+        for (JoinFetch fetchDef : def.value()) {
+            joins.add(joinFetchSpecificationResolver.buildSpecification(context, fetchDef));
+        }
 
-		return new Conjunction<>(joins);
-	}
+        return new Conjunction<>(joins);
+    }
 }

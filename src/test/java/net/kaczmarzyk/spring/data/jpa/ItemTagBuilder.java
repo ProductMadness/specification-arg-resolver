@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,23 +15,23 @@
  */
 package net.kaczmarzyk.spring.data.jpa;
 
-import javax.persistence.EntityManager;
+import jakarta.persistence.EntityManager;
 
 public class ItemTagBuilder {
 
-	private final String tagName;
+    private final String tagName;
 
-	private ItemTagBuilder(String tagName) {
-		this.tagName = tagName;
-	}
+    private ItemTagBuilder(String tagName) {
+        this.tagName = tagName;
+    }
 
-	public static ItemTagBuilder itemTag(String tagName) {
-		return new ItemTagBuilder(tagName);
-	}
+    public static ItemTagBuilder itemTag(String tagName) {
+        return new ItemTagBuilder(tagName);
+    }
 
-	public ItemTag build(EntityManager em) {
-		ItemTag tag = new ItemTag(tagName);
-		em.persist(tag);
-		return tag;
-	}
+    public ItemTag build(EntityManager em) {
+        ItemTag tag = new ItemTag(tagName);
+        em.persist(tag);
+        return tag;
+    }
 }

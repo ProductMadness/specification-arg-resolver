@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,34 +27,32 @@ import java.util.Collection;
 
 
 /**
- * @deprecated
- * This is going to be removed with {@link net.kaczmarzyk.spring.data.jpa.web.annotation.Joins}
- *
  * @author Tomasz Kaczmarzyk
+ * @deprecated This is going to be removed with {@link net.kaczmarzyk.spring.data.jpa.web.annotation.Joins}
  */
 @Deprecated
 class JoinsSpecificationResolver implements SpecificationResolver<Joins> {
 
-	private JoinFetchSpecificationResolver joinFetchSpecificationResolver = new JoinFetchSpecificationResolver();
-	private JoinSpecificationResolver joinSpecificationResolver = new JoinSpecificationResolver();
+    private final JoinFetchSpecificationResolver joinFetchSpecificationResolver = new JoinFetchSpecificationResolver();
+    private final JoinSpecificationResolver joinSpecificationResolver = new JoinSpecificationResolver();
 
-	@Override
-	public Class<? extends Annotation> getSupportedSpecificationDefinition() {
-		return Joins.class;
-	}
+    @Override
+    public Class<? extends Annotation> getSupportedSpecificationDefinition() {
+        return Joins.class;
+    }
 
-	@Override
-	public Specification<Object> buildSpecification(WebRequestProcessingContext context, Joins joinsDef) {
-		Collection<Specification<Object>> joins = new ArrayList<>();
+    @Override
+    public Specification<Object> buildSpecification(WebRequestProcessingContext context, Joins joinsDef) {
+        Collection<Specification<Object>> joins = new ArrayList<>();
 
-		for (JoinFetch fetchDef : joinsDef.fetch()) {
-			joins.add(joinFetchSpecificationResolver.buildSpecification(context, fetchDef));
-		}
+        for (JoinFetch fetchDef : joinsDef.fetch()) {
+            joins.add(joinFetchSpecificationResolver.buildSpecification(context, fetchDef));
+        }
 
-		for (Join joinDef : joinsDef.value()) {
-			joins.add(joinSpecificationResolver.buildSpecification(context, joinDef));
-		}
+        for (Join joinDef : joinsDef.value()) {
+            joins.add(joinSpecificationResolver.buildSpecification(context, joinDef));
+        }
 
-		return new Conjunction<>(joins);
-	}
+        return new Conjunction<>(joins);
+    }
 }

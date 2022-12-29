@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +26,12 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.lang.annotation.Annotation;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static java.util.Objects.nonNull;
@@ -40,177 +45,179 @@ import static java.util.stream.Collectors.toMap;
  */
 public class SpecificationArgumentResolver implements HandlerMethodArgumentResolver {
 
-	private Map<Class<? extends Annotation>, SpecificationResolver<? extends Annotation>> resolversBySupportedType;
+    private final Map<Class<? extends Annotation>, SpecificationResolver<? extends Annotation>> resolversBySupportedType;
 
-	public SpecificationArgumentResolver() {
-		 this(null, null);
-	}
-	
-	public SpecificationArgumentResolver(ConversionService conversionService) {
-		this(conversionService, null);
-	}
-	
-	public SpecificationArgumentResolver(AbstractApplicationContext applicationContext) {
-		this(null, applicationContext);
-	}
-	
-	public SpecificationArgumentResolver(ConversionService conversionService, AbstractApplicationContext abstractApplicationContext) {
-		SimpleSpecificationResolver simpleSpecificationResolver = new SimpleSpecificationResolver(conversionService, abstractApplicationContext);
-		
-		resolversBySupportedType = Arrays.asList(
-				simpleSpecificationResolver,
-				new OrSpecificationResolver(simpleSpecificationResolver),
-				new DisjunctionSpecificationResolver(simpleSpecificationResolver),
-				new ConjunctionSpecificationResolver(simpleSpecificationResolver),
-				new AndSpecificationResolver(simpleSpecificationResolver),
-				new JoinSpecificationResolver(),
-				new JoinsSpecificationResolver(),
-				new JoinFetchSpecificationResolver(),
-				new RepeatedJoinFetchResolver(),
-				new RepeatedJoinResolver()).stream()
-				.collect(toMap(
-								SpecificationResolver::getSupportedSpecificationDefinition,
-								identity(),
-								(u,v) -> { throw new IllegalStateException(String.format("Duplicate key %s", u)); },
-								LinkedHashMap::new
-						));
-	}
-	
+    public SpecificationArgumentResolver() {
+        this(null, null);
+    }
 
-	@Override
-	public boolean supportsParameter(MethodParameter parameter) {
-		Class<?> paramType = parameter.getParameterType();
+    public SpecificationArgumentResolver(ConversionService conversionService) {
+        this(conversionService, null);
+    }
 
-		return paramType.isInterface() && Specification.class.isAssignableFrom(paramType) && isAnnotated(parameter);
-	}
+    public SpecificationArgumentResolver(AbstractApplicationContext applicationContext) {
+        this(null, applicationContext);
+    }
 
-	@Override
-	public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest,
-	                              WebDataBinderFactory binderFactory) throws Exception {
+    public SpecificationArgumentResolver(ConversionService conversionService, AbstractApplicationContext abstractApplicationContext) {
+        SimpleSpecificationResolver simpleSpecificationResolver = new SimpleSpecificationResolver(conversionService, abstractApplicationContext);
 
-		WebRequestProcessingContext context = new WebRequestProcessingContext(parameter, webRequest);
+        resolversBySupportedType = Arrays.asList(
+                        simpleSpecificationResolver,
+                        new OrSpecificationResolver(simpleSpecificationResolver),
+                        new DisjunctionSpecificationResolver(simpleSpecificationResolver),
+                        new ConjunctionSpecificationResolver(simpleSpecificationResolver),
+                        new AndSpecificationResolver(simpleSpecificationResolver),
+                        new JoinSpecificationResolver(),
+                        new JoinsSpecificationResolver(),
+                        new JoinFetchSpecificationResolver(),
+                        new RepeatedJoinFetchResolver(),
+                        new RepeatedJoinResolver()).stream()
+                .collect(toMap(
+                        SpecificationResolver::getSupportedSpecificationDefinition,
+                        identity(),
+                        (u, v) -> {
+                            throw new IllegalStateException(String.format("Duplicate key %s", u));
+                        },
+                        LinkedHashMap::new
+                ));
+    }
 
-		List<Specification<Object>> specs = resolveSpec(context);
 
-		if (specs.isEmpty()) {
-			return null;
-		}
+    @Override
+    public boolean supportsParameter(MethodParameter parameter) {
+        Class<?> paramType = parameter.getParameterType();
 
-		if (specs.size() == 1) {
-			Specification<Object> firstSpecification = specs.iterator().next();
+        return paramType.isInterface() && Specification.class.isAssignableFrom(paramType) && isAnnotated(parameter);
+    }
 
-			if (Specification.class == parameter.getParameterType()) {
-				return firstSpecification;
-			} else {
-				return EnhancerUtil.wrapWithInterfaceImplementation(parameter.getParameterType(), firstSpecification);
-			}
-		}
+    @Override
+    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer, NativeWebRequest webRequest,
+                                  WebDataBinderFactory binderFactory) throws Exception {
 
-		Specification<Object> spec = new net.kaczmarzyk.spring.data.jpa.domain.Conjunction<>(specs);
+        WebRequestProcessingContext context = new WebRequestProcessingContext(parameter, webRequest);
 
-		return EnhancerUtil.wrapWithInterfaceImplementation(parameter.getParameterType(), spec);
-	}
+        List<Specification<Object>> specs = resolveSpec(context);
 
-	private List<Specification<Object>> resolveSpec(WebRequestProcessingContext context) throws Exception {
-		List<Specification<Object>> specAccumulator = new ArrayList<>();
+        if (specs.isEmpty()) {
+            return null;
+        }
 
-		resolveSpecFromInterfaceAnnotations(context, specAccumulator);
-		resolveSpecFromParameterAnnotations(context, specAccumulator);
+        if (specs.size() == 1) {
+            Specification<Object> firstSpecification = specs.iterator().next();
 
-		return specAccumulator;
-	}
+            if (Specification.class == parameter.getParameterType()) {
+                return firstSpecification;
+            } else {
+                return EnhancerUtil.wrapWithInterfaceImplementation(parameter.getParameterType(), firstSpecification);
+            }
+        }
 
-	private void resolveSpecFromParameterAnnotations(WebRequestProcessingContext context,
-	                                                 List<Specification<Object>> accum) {
-		forEachSupportedSpecificationDefinition(
-				context.getParameterAnnotations(),
-				specDefinition -> {
-					Specification<Object> specification = buildSpecification(context, specDefinition);
-					if (nonNull(specification)) {
-						accum.add(specification);
-					}
-				}
-		);
-	}
+        Specification<Object> spec = new net.kaczmarzyk.spring.data.jpa.domain.Conjunction<>(specs);
 
-	private void resolveSpecFromInterfaceAnnotations(WebRequestProcessingContext context,
-	                                                 List<Specification<Object>> accumulator) {
-		Collection<Class<?>> ifaceTree = TypeUtil.interfaceTree(context.getParameterType());
+        return EnhancerUtil.wrapWithInterfaceImplementation(parameter.getParameterType(), spec);
+    }
 
-		for (Class<?> iface : ifaceTree) {
-			forEachSupportedInterfaceSpecificationDefinition(iface,
-					(specDefinition) -> {
-						Specification<Object> specification = buildSpecification(context, specDefinition);
-						if (nonNull(specification)) {
-							accumulator.add(specification);
-						}
-					}
-			);
-		}
-	}
+    private List<Specification<Object>> resolveSpec(WebRequestProcessingContext context) throws Exception {
+        List<Specification<Object>> specAccumulator = new ArrayList<>();
 
-	private Specification<Object> buildSpecification(WebRequestProcessingContext context, Annotation specDef) {
-		SpecificationResolver resolver = resolversBySupportedType.get(specDef.annotationType());
+        resolveSpecFromInterfaceAnnotations(context, specAccumulator);
+        resolveSpecFromParameterAnnotations(context, specAccumulator);
 
-		if (resolver == null) {
-			throw new IllegalArgumentException(
-					"Definition is not supported. " +
-							"Specification resolver is not able to build specification from definition of type :" + specDef.annotationType()
-			);
-		}
+        return specAccumulator;
+    }
 
-		return resolver.buildSpecification(context, specDef);
-	}
+    private void resolveSpecFromParameterAnnotations(WebRequestProcessingContext context,
+                                                     List<Specification<Object>> accum) {
+        forEachSupportedSpecificationDefinition(
+                context.getParameterAnnotations(),
+                specDefinition -> {
+                    Specification<Object> specification = buildSpecification(context, specDefinition);
+                    if (nonNull(specification)) {
+                        accum.add(specification);
+                    }
+                }
+        );
+    }
 
-	private boolean isAnnotated(MethodParameter methodParameter) {
-		for (Annotation annotation : methodParameter.getParameterAnnotations()) {
-			for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
-				if (annotationType.equals(annotation.annotationType())) {
-					return true;
-				}
-			}
-		}
+    private void resolveSpecFromInterfaceAnnotations(WebRequestProcessingContext context,
+                                                     List<Specification<Object>> accumulator) {
+        Collection<Class<?>> ifaceTree = TypeUtil.interfaceTree(context.getParameterType());
 
-		return isAnnotatedRecursively(methodParameter.getParameterType());
-	}
+        for (Class<?> iface : ifaceTree) {
+            forEachSupportedInterfaceSpecificationDefinition(iface,
+                    (specDefinition) -> {
+                        Specification<Object> specification = buildSpecification(context, specDefinition);
+                        if (nonNull(specification)) {
+                            accumulator.add(specification);
+                        }
+                    }
+            );
+        }
+    }
 
-	private final boolean isAnnotatedRecursively(Class<?> target) {
-		if (target.getAnnotations().length != 0) {
-			for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
-				if (target.getAnnotation(annotationType) != null) {
-					return true;
-				}
-			}
-		}
+    private Specification<Object> buildSpecification(WebRequestProcessingContext context, Annotation specDef) {
+        SpecificationResolver resolver = resolversBySupportedType.get(specDef.annotationType());
 
-		for (Class<?> targetInterface : target.getInterfaces()) {
-			if (isAnnotatedRecursively(targetInterface)) {
-				return true;
-			}
-		}
+        if (resolver == null) {
+            throw new IllegalArgumentException(
+                    "Definition is not supported. "
+                            + "Specification resolver is not able to build specification from definition of type :" + specDef.annotationType()
+            );
+        }
 
-		return false;
-	}
+        return resolver.buildSpecification(context, specDef);
+    }
 
-	private void forEachSupportedSpecificationDefinition(Annotation[] parameterAnnotations, Consumer<Annotation> specificationBuilder) {
-		for (Annotation annotation : parameterAnnotations) {
-			for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
-				if (annotationType.isAssignableFrom(annotation.getClass())) {
-					specificationBuilder.accept(annotation);
-				}
-			}
-		}
-	}
+    private boolean isAnnotated(MethodParameter methodParameter) {
+        for (Annotation annotation : methodParameter.getParameterAnnotations()) {
+            for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
+                if (annotationType.equals(annotation.annotationType())) {
+                    return true;
+                }
+            }
+        }
 
-	private void forEachSupportedInterfaceSpecificationDefinition(Class<?> target, Consumer<Annotation> specificationBuilder) {
-		for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
-			if (target.getAnnotations().length != 0) {
-				Annotation potentialAnnotation = target.getAnnotation(annotationType);
-				if (potentialAnnotation != null) {
-					specificationBuilder.accept(potentialAnnotation);
-				}
-			}
-		}
-	}
+        return isAnnotatedRecursively(methodParameter.getParameterType());
+    }
+
+    private boolean isAnnotatedRecursively(Class<?> target) {
+        if (target.getAnnotations().length != 0) {
+            for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
+                if (target.getAnnotation(annotationType) != null) {
+                    return true;
+                }
+            }
+        }
+
+        for (Class<?> targetInterface : target.getInterfaces()) {
+            if (isAnnotatedRecursively(targetInterface)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void forEachSupportedSpecificationDefinition(Annotation[] parameterAnnotations, Consumer<Annotation> specificationBuilder) {
+        for (Annotation annotation : parameterAnnotations) {
+            for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
+                if (annotationType.isAssignableFrom(annotation.getClass())) {
+                    specificationBuilder.accept(annotation);
+                }
+            }
+        }
+    }
+
+    private void forEachSupportedInterfaceSpecificationDefinition(Class<?> target, Consumer<Annotation> specificationBuilder) {
+        for (Class<? extends Annotation> annotationType : resolversBySupportedType.keySet()) {
+            if (target.getAnnotations().length != 0) {
+                Annotation potentialAnnotation = target.getAnnotation(annotationType);
+                if (potentialAnnotation != null) {
+                    specificationBuilder.accept(potentialAnnotation);
+                }
+            }
+        }
+    }
 
 }

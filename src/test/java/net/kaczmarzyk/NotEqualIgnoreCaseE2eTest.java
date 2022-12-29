@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -44,71 +44,70 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 public class NotEqualIgnoreCaseE2eTest extends IntegrationTestBase {
 
-	@Controller
-	@RequestMapping("/not-equal-ignore-case")
-	public static class EqualIgnoreCaseSpecController {
+    protected MockMvc mockMvc;
+    @Autowired
+    WebApplicationContext wac;
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @BeforeEach
+    public void initializeTestData() {
+        customer("Homer", "Simpson").gender(MALE).build(em);
+        customer("Marge", "Simpson").gender(FEMALE).build(em);
+        customer("Bart", "Simpson").gender(MALE).build(em);
+        customer("Lisa", "Simpson").gender(FEMALE).build(em);
+        customer("Maggie", "Simpson").gender(FEMALE).build(em);
 
-		@RequestMapping(value = "/customers", params = "firstName")
-		@ResponseBody
-		public Object findCustomersByFirstNameIgnoringCase(
-				@Spec(path = "firstName", spec = NotEqualIgnoreCase.class) Specification<Customer> spec) {
+        this.mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
+    }
 
-			return customerRepo.findAll(spec);
-		}
+    @Test
+    public void findsByStringValueNotEqualIgnoringCase() throws Exception {
+        mockMvc.perform(get("/not-equal-ignore-case/customers")
+                        .param("firstName", "hOmEr")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Marge"))
+                .andExpect(jsonPath("$[1].firstName").value("Bart"))
+                .andExpect(jsonPath("$[2].firstName").value("Lisa"))
+                .andExpect(jsonPath("$[3].firstName").value("Maggie"))
+                .andExpect(jsonPath("$[4]").doesNotExist());
+    }
 
-		@RequestMapping(value = "/customers", params = "gender")
-		@ResponseBody
-		public Object findCustomersByGenderIgnoringCase(
-				@Spec(path = "gender", spec = NotEqualIgnoreCase.class) Specification<Customer> spec) {
+    @Test
+    public void findsByEnumValueNotEqualIgnoringCase() throws Exception {
+        mockMvc.perform(get("/not-equal-ignore-case/customers")
+                        .param("gender", "mAlE")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].firstName").value("Marge"))
+                .andExpect(jsonPath("$[1].firstName").value("Lisa"))
+                .andExpect(jsonPath("$[2].firstName").value("Maggie"))
+                .andExpect(jsonPath("$[3]").doesNotExist());
+    }
 
-			return customerRepo.findAll(spec);
-		}
-	}
+    @Controller
+    @RequestMapping("/not-equal-ignore-case")
+    public static class EqualIgnoreCaseSpecController {
 
-	@Autowired
-	WebApplicationContext wac;
+        @Autowired
+        CustomerRepository customerRepo;
 
-	protected MockMvc mockMvc;
+        @RequestMapping(value = "/customers", params = "firstName")
+        @ResponseBody
+        public Object findCustomersByFirstNameIgnoringCase(
+                @Spec(path = "firstName", spec = NotEqualIgnoreCase.class) Specification<Customer> spec) {
 
-	@BeforeEach
-	public void initializeTestData() {
-		customer("Homer", "Simpson").gender(MALE).build(em);
-		customer("Marge", "Simpson").gender(FEMALE).build(em);
-		customer("Bart", "Simpson").gender(MALE).build(em);
-		customer("Lisa", "Simpson").gender(FEMALE).build(em);
-		customer("Maggie", "Simpson").gender(FEMALE).build(em);
+            return customerRepo.findAll(spec);
+        }
 
-		this.mockMvc = MockMvcBuilders.webAppContextSetup(wac).build();
-	}
+        @RequestMapping(value = "/customers", params = "gender")
+        @ResponseBody
+        public Object findCustomersByGenderIgnoringCase(
+                @Spec(path = "gender", spec = NotEqualIgnoreCase.class) Specification<Customer> spec) {
 
-	@Test
-	public void findsByStringValueNotEqualIgnoringCase() throws Exception {
-		mockMvc.perform(get("/not-equal-ignore-case/customers")
-				.param("firstName", "hOmEr")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Marge"))
-				.andExpect(jsonPath("$[1].firstName").value("Bart"))
-				.andExpect(jsonPath("$[2].firstName").value("Lisa"))
-				.andExpect(jsonPath("$[3].firstName").value("Maggie"))
-				.andExpect(jsonPath("$[4]").doesNotExist());
-	}
-
-	@Test
-	public void findsByEnumValueNotEqualIgnoringCase() throws Exception {
-		mockMvc.perform(get("/not-equal-ignore-case/customers")
-				.param("gender", "mAlE")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[0].firstName").value("Marge"))
-				.andExpect(jsonPath("$[1].firstName").value("Lisa"))
-				.andExpect(jsonPath("$[2].firstName").value("Maggie"))
-				.andExpect(jsonPath("$[3]").doesNotExist());
-	}
+            return customerRepo.findAll(spec);
+        }
+    }
 
 }

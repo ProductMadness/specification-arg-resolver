@@ -1,12 +1,12 @@
 /**
  * Copyright 2014-2020 the original author or authors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,64 +34,64 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 public class NullE2eTest extends E2eTestBase {
 
-	@Controller
-	public static class TestController {
+    @Test
+    public void findsEntitiesWithNullAttributeValue() throws Exception {
+        mockMvc.perform(get("/characters?nickNameNull=true")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").doesNotExist())
+                .andExpect(jsonPath("$[5]").doesNotExist());
+    }
 
-		@Autowired
-		CustomerRepository customerRepo;
+    @Test
+    public void findsEntitiesWithNotNullAttributeValue() throws Exception {
+        mockMvc.perform(get("/characters?nickNameNull=false")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").doesNotExist())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
+                .andExpect(jsonPath("$[4]").doesNotExist());
+    }
 
-		@RequestMapping("/characters")
-		@ResponseBody
-		public Object findCharacters(
-				@Spec(path = "nickName", params = "nickNameNull", spec = Null.class) Specification<Customer> spec) {
-			return customerRepo.findAll(spec);
-		}
-	}
+    @Test
+    public void findsEntitiesWithNoFiltering() throws Exception {
+        mockMvc.perform(get("/characters")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
+                .andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists());
+    }
 
-	@Test
-	public void findsEntitiesWithNullAttributeValue() throws Exception {
-		mockMvc.perform(get("/characters?nickNameNull=true")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Homer')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Bart')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Ned')]").doesNotExist())
-				.andExpect(jsonPath("$[5]").doesNotExist());
-	}
+    @Controller
+    public static class TestController {
 
-	@Test
-	public void findsEntitiesWithNotNullAttributeValue() throws Exception {
-		mockMvc.perform(get("/characters?nickNameNull=false")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[?(@.firstName=='Marge')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Moe')]").doesNotExist())
-				.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists())
-				.andExpect(jsonPath("$[4]").doesNotExist());
-	}
+        @Autowired
+        CustomerRepository customerRepo;
 
-	@Test
-	public void findsEntitiesWithNoFiltering() throws Exception {
-		mockMvc.perform(get("/characters")
-				.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray())
-				.andExpect(jsonPath("$[?(@.firstName=='Marge')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Lisa')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Maggie')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Moe')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Homer')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Bart')]").exists())
-				.andExpect(jsonPath("$[?(@.firstName=='Ned')]").exists());
-	}
+        @RequestMapping("/characters")
+        @ResponseBody
+        public Object findCharacters(
+                @Spec(path = "nickName", params = "nickNameNull", spec = Null.class) Specification<Customer> spec) {
+            return customerRepo.findAll(spec);
+        }
+    }
 }
